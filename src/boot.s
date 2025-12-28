@@ -1,4 +1,4 @@
-/* src/boot.s */
+/* src/boot.S */
 /* Bootloader en ensamblador para ARM64 */
 .section .text /* Punto de entrada para el programa */
 .global _start /* Hacemos _start visible al linker */
