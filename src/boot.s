@@ -1,6 +1,7 @@
 /* src/boot.s */
-.section .text /* Entry point for the program */
-.global _start /* Make _start visible to the linker */
+/* Bootloader en ensamblador para ARM64 */
+.section .text /* Punto de entrada para el programa */
+.global _start /* Hacemos _start visible al linker */
 
 _start:
     /* 1. Comprobar el ID del procesador (MPIDR_EL1) */
