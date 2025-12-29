@@ -6,8 +6,8 @@ CFLAGS = -Wall -O2 -ffreestanding -nostdinc -nostdlib -mcpu=cortex-a72
 
 
 # Archivos fuente
-SRCS = src/boot.S src/kernel.c src/entry.S
-OBJS = build/boot.o build/kernel.o build/entry.o
+SRCS = src/boot.S src/kernel.c src/entry.S src/locks.S
+OBJS = build/boot.o build/kernel.o build/entry.o build/locks.o
 
 all: clean build/baremetalm4.elf run
 
@@ -21,6 +21,9 @@ build/boot.o: src/boot.S | build_dir
 	
 build/entry.o: src/entry.S | build_dir
 	$(CC) $(CFLAGS) -c src/entry.S -o build/entry.o
+
+build/locks.o: src/locks.S | build_dir
+	$(CC) $(CFLAGS) -c src/locks.S -o build/locks.o
 
 # Compilar C
 build/kernel.o: src/kernel.c | build_dir

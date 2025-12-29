@@ -32,7 +32,13 @@ uint8_t stack_2[4096];
 struct pcb *current_process = &kernel_proccess;
 
 /* Funcion externa en ensamblador */
+extern void spin_lock(volatile int *lock);
+extern void spin_unlock(volatile int *lock);
 extern void cpu_switch_to(struct pcb *prev, struct pcb *next);
+
+/* Variables compartidas */
+volatile int lock = 0;
+volatile int shared_counter = 0;
 
 /* Funcion para ceder el turno (Planificador Round Robin muy simple) */
 void schedule() {
@@ -59,28 +65,59 @@ void delay(int count) {
     for (volatile int i = 0; i < count; i++);
 }
 
-/* Codigo del proceso 1 */
+/* Codigo del proceso 1 - Intenta entrar en la seccion critica */
 void proceso_1() {
     while(1) {
-        // Imprimimos un mensaje de ejemplo realista como: "Proceso 1: ejecutando proceso de gestión de datos"
-        uart_puts("Proceso 1: ejecutando proceso de gestión de datos\n");
-        delay(1000000000); // Esperar un poco
-        schedule();
+        uart_puts("\n[P1] Intentando coger el cerrojo...\n");
+
+        spin_lock(&lock); // <-- Entrada en la seccion critica 
+
+        uart_puts("[P1] ¡Tengo el cerrojo! Modificando variable...\n");
+        int temp = shared_counter;
+        delay(1000000000);
+        shared_counter = temp + 1;
+
+        uart_puts("[P1] Soltando cerrojo. Contador = ");
+        uart_putc(shared_counter + '0'); // Imprimir numero simple(0-9)
+        uart_puts("\n");
+
+        spin_unlock(&lock); // <-- Salida de la seccion critica
+
+        schedule(); // Ceder turno
     }
 }
 
-/* Codigo del proceso 2 */
+/* Codigo del proceso 2 - Tambien intenta entrar en la seccion critica */
 void proceso_2() {
     while(1) {
-        uart_puts("Proceso 2: ejecutando proceso de gestión de recursos\n");
-        delay(1000000000); // Esperar un poco
+        uart_puts("\n[P2] Intentando coger el cerrojo...\n");
+
+        /* NOTA: En un sistema real con un solo núcleo, si P1 tiene el cerrojo
+           y hacemos switch a P2, P2 se quedaría aquí girando para siempre (Deadlock)
+           porque P1 no está ejecutándose para soltarlo.
+           
+           Para la DEMO, vamos a "simular" que el spinlock funciona viendo
+           que si está ocupado, no entramos. 
+        */
+
+        // Intento manual para no colgar QEMU (trampa educativa):
+        if (lock == 1) {
+            uart_puts("[P2] Ups!! Esta ocpado. No puedo entrar\n");
+        } else {
+            spin_lock(&lock);
+            uart_puts("[P2] Tengo el cerrojo!! Soy el rey\n");
+            shared_counter = 0; // P2 reseata el contador
+            spin_unlock(&lock);
+        }
+        
+        delay(1000000000);
         schedule();
     }
 }
 
 /* Funcion para inicializar un proceso */
 void init_process(struct pcb *process, void (*func)(), uint8_t *stack_top) {
-    process->pid = 1; // Pid simplificado
+    process->pid = 1 + (unsigned long)stack_top; // Pid simplificado
     process->state = 0;
 
     /* Contexto inicial */

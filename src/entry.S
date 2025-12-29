@@ -15,6 +15,8 @@ cpu_switch_to:
     stp x27, x28, [x0, #64]
     stp x29, x30, [x0, #80] /* x29=FP, x30=LR (direccion de retorno) */
 
+    /* Tanto stp como ldp trabajan con pares de registros y por tanto van con un offset múltiplo de 16 bytes */
+
     mov x9, sp
     str x9, [x0, #96] /* Guardar el Stack Pointer */
 
