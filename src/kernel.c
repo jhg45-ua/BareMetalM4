@@ -2,7 +2,7 @@
 #include "types.h"
 #include "sched.h"
 
-/* --- Herramientas Base del Kernel */
+/* --- Herramientas Base del Kernel --- */
 
 /* Direccion fisica del UART0 en QEMU 'virt' machine */
 volatile unsigned int * const UART0_DIR = (unsigned int *)0x09000000;
@@ -103,7 +103,7 @@ void schedule() {
 
 }
 
-/* Semaforos */
+/* --- Semaforos --- */
 struct semaphore {
     volatile int count;
     /*
@@ -183,7 +183,6 @@ void delay(int count) { for (volatile int i = 0; i < count; i++); }
 
 void productor() {
     while(1) {
-        // delay(100000000); // Productor rápido para llenar el buffer
         delay(200000000); // Ajusta este valor según prefieras
 
         uart_puts("\n[PROD] Generando dato "); 

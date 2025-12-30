@@ -24,5 +24,5 @@ master:
 
     /* 5. Si kernel_main retorna, detener el sistema */
 hang:
-    wfe /* Wait For Event */
+    wfe /* Wait For Event - el resto de nucleos se quedan en bucle infinito */
     b hang
