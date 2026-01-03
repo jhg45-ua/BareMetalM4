@@ -1,33 +1,15 @@
 /* src/kernel.c */
 #include "types.h"
 #include "sched.h"
+#include "io.h"
 
 /* --- Herramientas Base del Kernel --- */
 
-/* Direccion fisica del UART0 en QEMU 'virt' machine */
-volatile unsigned int * const UART0_DIR = (unsigned int *)0x09000000;
-/* Funcion auxiliar para escribir un caracter  */
-void uart_putc(char c) { *UART0_DIR = c; /* Escribir en esta direccion envia el dato a la terminal */ }
-/* Funcion auxiliar para escribir una cadena */
-void uart_puts(const char *s) { while (*s) uart_putc(*s++); }
-
-/* --- Función para imprimir números (útil para ver los slots) --- */
-void uart_print_int(int n) {
-    char buffer[10];
-    int i = 0;
-    if (n == 0) { uart_putc('0'); return; }
-    while (n > 0) {
-        buffer[i++] = (n % 10) + '0';
-        n /= 10;
-    }
-    while (i > 0) uart_putc(buffer[--i]);
-}
-
 /* Kernel Panic: Detiene el sistema si algo grave pasa */
 void panic(const char *msg) {
-    uart_puts("\n!!!! KERNEL PANIC !!!!\n");
-    uart_puts(msg);
-    uart_puts("\nSistema detenido");
+    kprintf("\n!!!! KERNEL PANIC !!!!\n");
+    kprintf(msg);
+    kprintf("\nSistema detenido");
     while(1);
 }
 
@@ -48,13 +30,14 @@ volatile int lock = 0;
 volatile int shared_counter = 0;
 
 /* Crea un nuevo hilo del kernel */
-int create_thread(void (*fn)(void)) {
+int create_thread(void (*fn)(void), int priority) {
     if (num_process >= MAX_PROCESS) return -1;
 
     struct pcb *p = &process[num_process];
     p->pid = num_process;
     p->state = PROCESS_READY;
     p->prempt_count = 0;
+    p->priority = priority;
 
     p->context.x19 = 0;
     p->context.pc = (unsigned long)fn;
@@ -67,40 +50,66 @@ int create_thread(void (*fn)(void)) {
 
 /* Funcion para ceder el turno (Planificador Round Robin con Gestion de Estados) */
 void schedule() {
-    int current_pid = current_process->pid;
-    int next_pid = current_pid; // Por defecto nos quedamos igual si no hay nadie mas
-
-    /* 1. Fase de Busqueda: Solo buscamos quien es el siguiente */
-    for (int i = 1; i <= MAX_PROCESS; i++) {
-        int candidate_pid = (current_pid + i) % num_process;
-
-        if (process[candidate_pid].state == PROCESS_READY || 
-            process[candidate_pid].state == PROCESS_RUNNING) {
-                next_pid = candidate_pid;
-                break; // Encontrado!!! Salimos del bucle para procesarlo
+    /* 1. Fase de Envejecimiento */
+    /* Recorremos todos los procesos para 'premiar' a los que esperan */
+    for (int i = 0; i < num_process; i++) {
+        /* Si el proceso esta listo y  NO es el que se esta ejecutando actualmente */
+        if (process[i].state == PROCESS_READY && i != current_process->pid) {
+            /* ... le subimos la prioridad (restamos un valor) para que sea mas importante */
+            /* Ponemos un limite (0) para no tener prioridades negativas */
+            if (process[i].priority > 0) {
+                process[i].priority--;
+            }
         }
     }
 
-    /* 2. Fase de Cambio de Contexto: Ejecutamos fuera del bucle */
+    /* 2. Fase de Eleccion (Como antes, busca la mejor prioridad)*/
+    int next_pid = -1;
+    int highest_priority_found = 1000; // Un numero muy alto (peor prioridad)
+
+    /* Estrategia: Buscar el proceso READY con la MENOR variable 'priority' (Mas Importante) */
+    for (int i = 0; i < num_process; i++) {
+        /* Solo miramos los procesos Listos o Corriendo */
+        if (process[i].state == PROCESS_READY || process[i].state == PROCESS_RUNNING) {
+            /* Si encontramos uno con mejor prioridad, es el candidato */
+            if (process[i].priority < highest_priority_found) {
+                highest_priority_found = process[i].priority;
+                next_pid = i;
+            }
+            /*
+                Nota: Si tiene la MISMA prioridad, podriamos hacer un Round Robin entre ellos,
+                pero para simplificar hacemos FIFO
+            */
+        }
+    }
+
+    /* Si no hay nadie listo (solo pasa si todos estan bloqueados o zombis) */
+    if (next_pid == -1) return;
+
     struct pcb *next = &process[next_pid];
     struct pcb *prev = current_process;
 
-    /* Si no hay nadie mas listo (salvo el proceso actual) volvemos*/
-    if (next->state != PROCESS_READY && next->state != PROCESS_RUNNING) {
-        return;
-    }
+    /* 
+        TRUCO EXTRA: Si elegimos una tarea que había subido mucho por Aging,
+        deberíamos restaurar su prioridad original para que no se quede
+        siendo la jefa para siempre. 
+        Para este ejemplo simple, vamos a penalizarla un poco al ejecutarse. 
+    */
+    if (next->priority < 10) {
+    next->priority += 2;
+   }
 
     if (prev != next) {
-        /* CORRECCIÓN 2: Usar '=' (asignación) y no '==' (comparación) */
-        if (prev->state == PROCESS_RUNNING) {
-            prev->state = PROCESS_READY;
-        }
+        if (prev->state == PROCESS_RUNNING) prev->state = PROCESS_READY;
         next->state = PROCESS_RUNNING;
-
         current_process = next;
+
+        /* Debug: Ver el cambio de contexto */
+        kprintf("--- Switch: P%d (Prior %d) -> P%d (Prior %d) ---\n", 
+               prev->pid, prev->priority, next->pid, next->priority);
+
         cpu_switch_to(prev, next);
     }
-
 }
 
 /* --- Semaforos --- */
@@ -182,20 +191,16 @@ int next_produced = 1; // Valor a generar (1, 2, 3...)
 void delay(int count) { for (volatile int i = 0; i < count; i++); }
 
 void productor() {
-    while(1) {
+    while (1) {
         delay(200000000); // Ajusta este valor según prefieras
 
-        uart_puts("\n[PROD] Generando dato "); 
-        uart_print_int(next_produced); 
-        uart_puts("...\n");
+        kprintf("\n[PROD] Generando dato %d...\n", next_produced);
 
         sem_wait(&sem_space); /* Esperar hueco (Down Space) */
 
         /* --- SECCIÓN CRÍTICA (Escribir en Buffer) --- */
         buffer[in] = next_produced;
-        uart_puts("[PROD] Puesto en slot [");
-        uart_print_int(in);
-        uart_puts("].\n");
+        kprintf("[PROD] Puesto en slot [%d].\n", in);
         
         in = (in + 1) % BUFFER_SIZE; /* Avanzar índice circularmente */
         next_produced++;
@@ -206,21 +211,17 @@ void productor() {
 }
 
 void consumidor() {
-    while(1) {
+    while (1) {
         /* Consumidor más lento para ver cómo se llena el buffer */
         delay(800000000); 
 
-        uart_puts("      [CONS] Comprobando buffer...\n");
+        kprintf("      [CONS] Comprobando buffer...\n");
 
         sem_wait(&sem_items); /* Esperar item (Down Items) */
 
         /* --- SECCIÓN CRÍTICA (Leer de Buffer) --- */
         int dato = buffer[out];
-        uart_puts("      [CONS] Leido dato ");
-        uart_print_int(dato);
-        uart_puts(" del slot [");
-        uart_print_int(out);
-        uart_puts("].\n");
+        kprintf("      [CONS] Leido dato %d del slot [%d].\n", dato, out);
 
         out = (out + 1) % BUFFER_SIZE; /* Avanzar índice circularmente */
         /* ---------------------------------------- */
@@ -229,15 +230,35 @@ void consumidor() {
     }
 }
 
+/* --- Escenario de Inaniccion --- */
+void tarea_tirana() {
+    while (1) {
+        kprintf("[TIRANA] Soy la jefa (Prior %d). Trabajando...\n", current_process->priority);
+        // Delay medio para que de tiempo a ver el texto
+        delay(200000000); 
+        schedule();
+    }
+}
+
+void tarea_humilde() {
+    while (1) {
+        kprintf("       [HUMILDE] Por fin!!! (Prior %d). Gracias....\n", current_process->priority);
+        delay(200000000);
+        schedule();
+    }
+}
+
 /* Punto de entrada principal */
 void kernel() {
-    uart_puts("¡¡¡Hola desde BareMetalM4!!!\n");
-    uart_puts("Sistema Operativo iniciando...\n");
+    kprintf("¡¡¡Hola desde BareMetalM4!!!\n");
+    kprintf("Sistema Operativo iniciando...\n");
+    kprintf("Planificador por Prioridades\n");
 
     /* Inicializamos Kernel como Proceso 0 */
     current_process = &process[0];
     current_process->pid = 0;
     current_process->state = PROCESS_RUNNING;
+    current_process->priority = 99;
     num_process = 1;
 
     /* 
@@ -245,14 +266,16 @@ void kernel() {
             - 0 items al principio
             - 4 espacios libres (BUFFER_SIZE)
     */
-    sem_init(&sem_items, 0);
-    sem_init(&sem_space, BUFFER_SIZE);
+    // sem_init(&sem_items, 0);
+    // sem_init(&sem_space, BUFFER_SIZE);
 
    /* Creamos los procesos dinamicamente */
-   create_thread(productor);
-   create_thread(consumidor);
+    // create_thread(productor);
+    // create_thread(consumidor);
+    create_thread(tarea_tirana, 1);  // Prioridad 1 (Muy Alta)
+    create_thread(tarea_humilde, 10); // Prioridad 10 (Muy Baja)
 
-    uart_puts("Lanzando Scheduler...\n");
+    kprintf("Lanzando Scheduler...\n");
     while(1) {
         schedule();
     }

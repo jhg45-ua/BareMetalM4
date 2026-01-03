@@ -39,6 +39,7 @@ struct pcb {
     long state; // 0 = Ready | 1 = Running, etc...
     long pid;   // Process ID
     long prempt_count;
+    int priority; // Prioridad del proceso - 1(Alta) a 10(Baja)
 };
 
 #endif // SCHED_H
