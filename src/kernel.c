@@ -2,6 +2,7 @@
 #include "types.h"
 #include "sched.h"
 #include "io.h"
+#include "timer.h"
 
 /* --- Herramientas Base del Kernel --- */
 
@@ -13,6 +14,10 @@ void panic(const char *msg) {
     while(1);
 }
 
+/* Un retardo simple para que podamos ver el texto despacio */
+/* cada iteracion puede durar varios ciclos de CPU, lo que en el caso de 1000000000 iteraciones puede ser aproximadamente 1 segundo */
+void delay(int count) { for (volatile int i = 0; i < count; i++); }
+
 /* --- GESTION DE PROCESOS (Mejorado) --- */
 struct pcb process[MAX_PROCESS];    // Array de procesos
 struct pcb *current_process;        // Proceso actual
@@ -20,10 +25,14 @@ int num_process = 0;
 
 /* Memoria para pilas de procesos (64 procesos x 4KB) 
     En un SO real usariamos 'malloc' o un Page Allocator */
-uint8_t process_stack[MAX_PROCESS][4096]; 
+uint8_t process_stack[MAX_PROCESS][4096] __attribute__((aligned(16)));
 
 /* Funcion externa en ensamblador */
 extern void cpu_switch_to(struct pcb *prev, struct pcb *next);
+extern void timer_init(void);
+extern void enable_interrupts(void);
+extern void spin_lock(volatile int *lock);
+extern void spin_unlock(volatile int *lock);
 
 /* Variables compartidas */
 volatile int lock = 0;
@@ -32,8 +41,8 @@ volatile int shared_counter = 0;
 /* Crea un nuevo hilo del kernel */
 int create_thread(void (*fn)(void), int priority) {
     if (num_process >= MAX_PROCESS) return -1;
-
     struct pcb *p = &process[num_process];
+
     p->pid = num_process;
     p->state = PROCESS_READY;
     p->prempt_count = 0;
@@ -96,8 +105,8 @@ void schedule() {
         Para este ejemplo simple, vamos a penalizarla un poco al ejecutarse. 
     */
     if (next->priority < 10) {
-    next->priority += 2;
-   }
+        next->priority += 2;
+    }
 
     if (prev != next) {
         if (prev->state == PROCESS_RUNNING) prev->state = PROCESS_READY;
@@ -120,9 +129,6 @@ struct semaphore {
         el scheduler los saltara hasta que el semaforo los despierte
     */
 };
-
-extern void spin_lock(volatile int *lock);
-extern void spin_unlock(volatile int *lock);
 
 /*
     Como no tenemos listas de espera complejas, usaremos un spinlock global para proteger, la operacion
@@ -186,10 +192,6 @@ int in = 0;  // Índice donde escribe el Productor
 int out = 0; // Índice donde lee el Consumidor
 int next_produced = 1; // Valor a generar (1, 2, 3...)
 
-/* Un retardo simple para que podamos ver el texto despacio */
-/* cada iteracion puede durar varios ciclos de CPU, lo que en el caso de 1000000000 iteraciones puede ser aproximadamente 1 segundo */
-void delay(int count) { for (volatile int i = 0; i < count; i++); }
-
 void productor() {
     while (1) {
         delay(200000000); // Ajusta este valor según prefieras
@@ -248,6 +250,25 @@ void tarea_humilde() {
     }
 }
 
+/* --- Multitarea Expropiativa --- */
+void proceso_1() {
+    enable_interrupts(); /* ¡Vital! */
+    int c = 0;
+    while(1) {
+        kprintf("[P1] Proceso 1 (Cuenta: %d)\n", c++);
+        delay(100000000); 
+    }
+}
+
+void proceso_2() {
+    enable_interrupts(); /* ¡Vital! */
+    int c = 0;
+    while(1) {
+        kprintf("     [P2] Proceso 2 (Cuenta: %d)\n", c++);
+        delay(100000000); 
+    }
+}
+
 /* Punto de entrada principal */
 void kernel() {
     kprintf("¡¡¡Hola desde BareMetalM4!!!\n");
@@ -258,7 +279,7 @@ void kernel() {
     current_process = &process[0];
     current_process->pid = 0;
     current_process->state = PROCESS_RUNNING;
-    current_process->priority = 99;
+    current_process->priority = 20;
     num_process = 1;
 
     /* 
@@ -272,11 +293,16 @@ void kernel() {
    /* Creamos los procesos dinamicamente */
     // create_thread(productor);
     // create_thread(consumidor);
-    create_thread(tarea_tirana, 1);  // Prioridad 1 (Muy Alta)
-    create_thread(tarea_humilde, 10); // Prioridad 10 (Muy Baja)
+    // create_thread(tarea_tirana, 1);  // Prioridad 1 (Muy Alta)
+    // create_thread(tarea_humilde, 10); // Prioridad 10 (Muy Baja)
+
+    create_thread(proceso_1, 1); // Prioridad media
+    create_thread(proceso_2, 1); // Prioridad media
+
+    timer_init(); /* Inicializamos el timer para multitarea expropiativa */
 
     kprintf("Lanzando Scheduler...\n");
     while(1) {
-        schedule();
+        asm volatile("wfi"); /* Esperar Interrupcion */
     }
 }
