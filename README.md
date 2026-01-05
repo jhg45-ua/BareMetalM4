@@ -31,7 +31,7 @@ Este proyecto demuestra cómo arrancar un procesador de 64 bits desde cero, gest
 | :--- | :--- |
 | **`src/boot.S`** | Punto de entrada (`_start`). Lee `MPIDR_EL1` para detener núcleos secundarios, configura el Stack Pointer (`sp`) y salta a C. |
 | **`src/entry.S`** | Implementa `cpu_switch_to` (cambio de contexto en procesos). Guarda/restaura registros *callee-saved* (`x19`-`x30`) y stack pointer. Incluye `irq_handler_stub` para manejo de interrupciones con preservación completa de contexto. |
-| **`src/kernel.c`** | Lógica principal. Inicializa el sistema, implementa scheduler con Aging, semáforos, y demo Productor-Consumidor. |
+| **`src/kernel.c`** | Lógica principal. Inicializa el sistema, scheduler con Aging, crea dos hilos de ejemplo (`proceso_1` / `proceso_2`) y habilita el timer para expropiación. |
 | **`src/locks.S`** | Primitivas atómicas `spin_lock` y `spin_unlock` con instrucciones exclusivas (`ldxr`/`stxr`) y barreras de memoria (`dmb sy`). |
 | **`src/timer.c`** | Inicialización del GIC v2, setup del timer virtual (`CNTP_TVAL_EL0`), y manejador `handle_timer_irq` para expropiación del scheduler. |
 | **`src/vectors.S`** | Tabla de vectores de excepciones (`VBAR_EL1`). Enruta IRQs, SysCalls, excepciones de sincronización, etc. |
@@ -96,8 +96,8 @@ El sistema inicia en la etiqueta `_start`. La primera instrucción crítica lee 
 ### 2. Inicialización del Sistema (`kernel.c`)
 En `kernel()`:
 1. **Llamada a `timer_init()`:** Configura el GIC v2 (distribuidor e interfaz de CPU), activa la interrupción del timer (ID 30) y establece `VBAR_EL1` apuntando a la tabla de vectores.
-2. **Creación de procesos:** Se lanzan tareas de ejemplo (productor-consumidor, etc.) usando `create_thread()`.
-3. **Bucle de espera:** El kernel ejecuta `wfi()` (Wait For Interrupt) en un ciclo infinito. Las interrupciones del timer provocan saltos a `irq_handler_stub` cada `TIMER_INTERVAL` ciclos.
+2. **Creación de procesos:** Se lanzan dos hilos de ejemplo (`proceso_1` y `proceso_2`) que imprimen contadores y llaman `enable_interrupts()` para permitir las IRQ de timer.
+3. **Bucle de espera:** El kernel ejecuta `wfi()` (Wait For Interrupt) en un ciclo infinito. Las interrupciones del timer disparan `irq_handler_stub` y fuerzan `schedule()` cada `TIMER_INTERVAL` ciclos.
 
 ### 3. Gestión de Procesos (`kernel.c` y `sched.h`)
 El kernel mantiene un array estático de PCBs: `struct pcb process[MAX_PROCESS]`.
@@ -137,13 +137,9 @@ El timer del sistema genera una interrupción cada `TIMER_INTERVAL` ciclos:
    - Escribir en EOIR (End of Interrupt Register) señaliza fin de la interrupción
    - Si es el timer (ID 30), recarga el valor del timer y llama a `schedule()`
 
-### 6. Sincronización y Demo
-El kernel arranca demostrando el problema **Productor-Consumidor**:
-- **Productor:** Genera números incrementales, llena un buffer circular de tamaño 4, simula trabajo con retardo (~200ms).
-- **Consumidor:** Lee del buffer, simula ser más lento (~800ms) para demostrar cómo el productor se bloquea cuando el buffer se llena.
-- **Semáforos (`sem_wait` / `sem_signal`):**
-    - Protegen el acceso al buffer (`buffer`, `in`, `out`).
-    - Si un semáforo está en 0 (recurso no disponible), `sem_wait` llama explícitamente a `schedule()`, cediendo voluntariamente la CPU hasta que otro hilo libere el recurso.
+### 6. Demo actual y Semáforos disponibles
+- **Demo actual:** Dos hilos (`proceso_1`, `proceso_2`) imprimen contadores mientras el timer expropia periódicamente, mostrando el cambio de contexto en vivo.
+- **Semáforos (`sem_wait` / `sem_signal`):** Disponibles en `src/semaphore.c` con spinlock global para atomicidad. No se usan en la demo por defecto; puedes integrarlos en tus propios hilos para experimentar bloqueo/desbloqueo cooperativo + expropiativo.
 
 ---
 *Proyecto educativo para demostración de sistemas operativos en AArch64.*
