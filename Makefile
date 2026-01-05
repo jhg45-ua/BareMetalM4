@@ -1,63 +1,67 @@
 CC = aarch64-elf-gcc
 LD = aarch64-elf-ld
 
-# --- TRUCO ---
-# Preguntamos a GCC dónde guarda sus cabeceras internas (stdarg.h, stdint.h, etc.)
-# y guardamos esa ruta en la variable GCC_INC
+# Directorio de cabeceras internas de GCC
 GCC_INC = $(shell $(CC) -print-file-name=include)
 
-# --- CFLAGS ---
-# Añadimos -I$(GCC_INC) para decirle: "Usa tus cabeceras internas, pero ignora las del sistema operativo"
-CFLAGS = -Wall -O2 -ffreestanding -nostdinc -I$(GCC_INC) -nostdlib -mcpu=cortex-a72 -mgeneral-regs-only
+# Flags de compilación
+CFLAGS = -Wall -O2 -ffreestanding -nostdinc -I$(GCC_INC) -nostdlib \
+         -mcpu=cortex-a72 -mgeneral-regs-only
 
-# Archivos fuente
-SRCS = src/boot.S src/entry.S src/locks.S src/utils.S src/vectors.S src/kernel.c src/io.c src/timer.c
-OBJS = build/boot.o build/entry.o build/locks.o build/utils.o build/vectors.o build/kernel.o build/io.o build/timer.o
+# Directorios
+SRC_DIR = src
+BUILD_DIR = build
 
-# ... (El resto del Makefile sigue igual a partir de aquí) ...
-all: clean build/baremetalm4.elf run
+# Archivos fuente (se buscan automáticamente)
+ASM_SRCS = $(wildcard $(SRC_DIR)/*.S)
+C_SRCS = $(wildcard $(SRC_DIR)/*.c)
 
-build_dir:
-	mkdir -p build
+# Archivos objeto (conversión automática)
+ASM_OBJS = $(patsubst $(SRC_DIR)/%.S, $(BUILD_DIR)/%.o, $(ASM_SRCS))
+C_OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(C_SRCS))
+OBJS = $(ASM_OBJS) $(C_OBJS)
 
-# Compilar ensamblador
-build/boot.o: src/boot.S | build_dir
-	$(CC) $(CFLAGS) -c src/boot.S -o build/boot.o
+# Archivos finales
+ELF = $(BUILD_DIR)/baremetalm4.elf
+LINKER_SCRIPT = link.ld
 
-# Compilar entry
-build/entry.o: src/entry.S | build_dir
-	$(CC) $(CFLAGS) -c src/entry.S -o build/entry.o
+# --- REGLAS ---
 
-# Compilar locks
-build/locks.o: src/locks.S | build_dir
-	$(CC) $(CFLAGS) -c src/locks.S -o build/locks.o
+.PHONY: all run clean
 
-# Compilar utils
-build/utils.o: src/utils.S | build_dir
-	$(CC) $(CFLAGS) -c src/utils.S -o build/utils.o
+all: $(ELF)
 
-# Compilar vectors
-build/vectors.o: src/vectors.S | build_dir
-	$(CC) $(CFLAGS) -c src/vectors.S -o build/vectors.o
+# Regla para ensamblar archivos .S
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.S | $(BUILD_DIR)
+	@echo "[ASM] $<"
+	@$(CC) $(CFLAGS) -c $< -o $@
 
-# Compilar C (Kernel)
-build/kernel.o: src/kernel.c | build_dir
-	$(CC) $(CFLAGS) -c src/kernel.c -o build/kernel.o
+# Regla para compilar archivos .c
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
+	@echo "[CC]  $<"
+	@$(CC) $(CFLAGS) -c $< -o $@
 
-# Compilar C (IO)
-build/io.o: src/io.c | build_dir
-	$(CC) $(CFLAGS) -c src/io.c -o build/io.o
+# Enlazar todos los objetos
+$(ELF): $(OBJS) $(LINKER_SCRIPT)
+	@echo "[LD]  $@"
+	@$(LD) -T $(LINKER_SCRIPT) -o $@ $(OBJS)
+	@echo "Build completado: $@"
 
-# Compilar C (Timer)
-build/timer.o: src/timer.c | build_dir
-	$(CC) $(CFLAGS) -c src/timer.c -o build/timer.o
+# Crear directorio de build
+$(BUILD_DIR):
+	@mkdir -p $(BUILD_DIR)
 
-# Enlazar
-build/baremetalm4.elf: $(OBJS)
-	$(LD) -T link.ld -o build/baremetalm4.elf $(OBJS)
+# Ejecutar en QEMU
+run: $(ELF)
+	@qemu-system-aarch64 -M virt -cpu cortex-a72 -nographic -kernel $(ELF)
 
-run:
-	qemu-system-aarch64 -M virt -cpu cortex-a72 -nographic -kernel build/baremetalm4.elf
-
+# Limpiar archivos generados
 clean:
-	rm -rf build
+	@echo "Limpiando build..."
+	@rm -rf $(BUILD_DIR)
+
+# Mostrar variables (útil para debug)
+debug:
+	@echo "ASM_SRCS: $(ASM_SRCS)"
+	@echo "C_SRCS:   $(C_SRCS)"
+	@echo "OBJS:     $(OBJS)"
