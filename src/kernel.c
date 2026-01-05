@@ -3,6 +3,7 @@
 #include "../include/sched.h"
 #include "../include/io.h"
 #include "../include/timer.h"
+#include "../include/semaphore.h"
 
 /* --- Herramientas Base del Kernel --- */
 
@@ -31,12 +32,6 @@ uint8_t process_stack[MAX_PROCESS][4096] __attribute__((aligned(16)));
 extern void cpu_switch_to(struct pcb *prev, struct pcb *next);
 extern void timer_init(void);
 extern void enable_interrupts(void);
-extern void spin_lock(volatile int *lock);
-extern void spin_unlock(volatile int *lock);
-
-/* Variables compartidas */
-volatile int lock = 0;
-volatile int shared_counter = 0;
 
 /* Crea un nuevo hilo del kernel */
 int create_thread(void (*fn)(void), int priority) {
@@ -121,135 +116,6 @@ void schedule() {
     }
 }
 
-/* --- Semaforos --- */
-struct semaphore {
-    volatile int count;
-    /*
-        En un SO real, aqui iria una lista de espera(wait_queue). Para simplificar, marcaremos procesos como BLOCKED y
-        el scheduler los saltara hasta que el semaforo los despierte
-    */
-};
-
-/*
-    Como no tenemos listas de espera complejas, usaremos un spinlock global para proteger, la operacion
-    del semaforo atomicamente
-*/
-volatile int sem_lock = 0;
-
-void sem_init(struct semaphore *s, int value) {
-    s->count = value;
-}
-
-/* WAIT [P()]: Intenta entrar, si no puede se duerme */
-void sem_wait(struct semaphore *s) {
-    while (1) {
-        spin_lock(&sem_lock); // Protegemos el acceso
-
-        if (s->count > 0) {
-            s->count--;
-            spin_unlock(&sem_lock);
-            return; // Entramos con exito
-        }
-        /*
-            El recurso esta ocupado: BLOQUEAMOS el proceso actual
-            Nota: Esto es insuficiente porque soltariamos el lock y volvemos a intentarlo
-            en la siguiente vuelta, pero ilustra el concepto de "no pasar"
-        */
-        spin_unlock(&sem_lock);
-
-        /* 
-            Marcamos el proceso como BLOQUEADO para que el scheduler no lo elija
-            NOTA IMPORTANTE: En esta implementación simplificada, necesitamos
-            que el sem_post nos despierte.
-        */
-        
-        // Simulación simple de bloqueo: cedemos CPU voluntariamente
-        // En un sistema completo: current->state = TASK_BLOCKED;
-        schedule();
-    }
-
-    
-}
-
-/* SIGNAL [V()]: Libera y despierta */
-void sem_signal(struct semaphore *s) {
-    spin_lock(&sem_lock);
-    s->count++;
-    spin_unlock(&sem_lock);
-    /*
-        En un sistema real, aquí buscaríamos un proceso BLOCKED en la lista
-        del semáforo y lo pondríamos en READY
-    */
-}
-
-/* Experimento del Productor-Consumidor */
-struct semaphore sem_items; // Cuenta los elementos disponibles
-struct semaphore sem_space; // Cuanta los huecos libres
-
-/* El Buffer Real */
-int buffer[BUFFER_SIZE];
-int in = 0;  // Índice donde escribe el Productor
-int out = 0; // Índice donde lee el Consumidor
-int next_produced = 1; // Valor a generar (1, 2, 3...)
-
-void productor() {
-    while (1) {
-        delay(200000000); // Ajusta este valor según prefieras
-
-        kprintf("\n[PROD] Generando dato %d...\n", next_produced);
-
-        sem_wait(&sem_space); /* Esperar hueco (Down Space) */
-
-        /* --- SECCIÓN CRÍTICA (Escribir en Buffer) --- */
-        buffer[in] = next_produced;
-        kprintf("[PROD] Puesto en slot [%d].\n", in);
-        
-        in = (in + 1) % BUFFER_SIZE; /* Avanzar índice circularmente */
-        next_produced++;
-        /* ------------------------------------------- */
-
-        sem_signal(&sem_items); /* Avisar que hay un nuevo item (Up Items) */
-    }
-}
-
-void consumidor() {
-    while (1) {
-        /* Consumidor más lento para ver cómo se llena el buffer */
-        delay(800000000); 
-
-        kprintf("      [CONS] Comprobando buffer...\n");
-
-        sem_wait(&sem_items); /* Esperar item (Down Items) */
-
-        /* --- SECCIÓN CRÍTICA (Leer de Buffer) --- */
-        int dato = buffer[out];
-        kprintf("      [CONS] Leido dato %d del slot [%d].\n", dato, out);
-
-        out = (out + 1) % BUFFER_SIZE; /* Avanzar índice circularmente */
-        /* ---------------------------------------- */
-
-        sem_signal(&sem_space); /* Avisar que hay un hueco libre (Up Space) */
-    }
-}
-
-/* --- Escenario de Inaniccion --- */
-void tarea_tirana() {
-    while (1) {
-        kprintf("[TIRANA] Soy la jefa (Prior %d). Trabajando...\n", current_process->priority);
-        // Delay medio para que de tiempo a ver el texto
-        delay(200000000); 
-        schedule();
-    }
-}
-
-void tarea_humilde() {
-    while (1) {
-        kprintf("       [HUMILDE] Por fin!!! (Prior %d). Gracias....\n", current_process->priority);
-        delay(200000000);
-        schedule();
-    }
-}
-
 /* --- Multitarea Expropiativa --- */
 void proceso_1() {
     enable_interrupts(); /* ¡Vital! */
@@ -281,20 +147,6 @@ void kernel() {
     current_process->state = PROCESS_RUNNING;
     current_process->priority = 20;
     num_process = 1;
-
-    /* 
-        Configuración:
-            - 0 items al principio
-            - 4 espacios libres (BUFFER_SIZE)
-    */
-    // sem_init(&sem_items, 0);
-    // sem_init(&sem_space, BUFFER_SIZE);
-
-   /* Creamos los procesos dinamicamente */
-    // create_thread(productor);
-    // create_thread(consumidor);
-    // create_thread(tarea_tirana, 1);  // Prioridad 1 (Muy Alta)
-    // create_thread(tarea_humilde, 10); // Prioridad 10 (Muy Baja)
 
     create_thread(proceso_1, 1); // Prioridad media
     create_thread(proceso_2, 1); // Prioridad media

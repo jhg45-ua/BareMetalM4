@@ -1,15 +1,30 @@
 ENTRY(_start)
 
-SECTIONS
-{
-    /* Empezamos en la direccion de RAM de QEMU */
-    . = 0x40000000;
+PHDRS {
+  text PT_LOAD FLAGS(5); /* R X */
+  data PT_LOAD FLAGS(6); /* R W */
+}
 
-    .text : { *(.text) }     /* Codigo */
-    .data : { *(.data) }     /* Datos inicializados */
-    .bss :  { *(.bss) }      /* Datos sin inicializar */
+SECTIONS {
+  . = 0x40000000;
 
-    /* Reservamos espacio para el Stack */
-    . = . + 0x1000;     /* 4KB de Stack */
+  .text : {
+    *(.text*)
+    *(.rodata*)   /* mete rodata en RX */
+  } :text
+
+  . = ALIGN(0x1000);
+  .data : { *(.data*) } :data
+
+  .bss (NOLOAD) : {
+    *(.bss*)
+    *(COMMON)
+  } :data
+
+  . = ALIGN(0x1000);
+  /* Reserva de stack */
+  .stack (NOLOAD) : {
+    . = . + 0x1000; /* 4KB */
     _stack_top = .;
+  } :data
 }
