@@ -474,6 +474,121 @@ El envejecimiento garantiza que **todos los procesos eventualmente ejecutan** (p
 
 ---
 
+### Sleep: Dormir un Proceso por Tiempo Determinado
+
+**Ubicación**: `kernel.c::sleep()`
+
+Mecanismo para que un proceso se bloquee **temporalmente** (a diferencia de semáforos que se bloquean indefinidamente).
+
+#### Comparación: delay() vs sleep()
+
+| Aspecto | delay() | sleep() |
+|--------|---------|---------|
+| **Tipo** | Busy-wait | Bloqueo con timer |
+| **CPU** | Consume (bucle infinito) | Libera (para otros procesos) |
+| **Otros procesos** | NO pueden ejecutar | PUEDEN ejecutar |
+| **Precisión** | Exacta (ciclos de CPU) | Aproximada (~10ms) |
+| **Uso** | Timing preciso | Delays normales |
+
+#### Flujo de Ejecución
+
+```
+Proceso 1 ejecuta: sleep(50)
+    │
+    ├─ Calcula: wake_up_time = sys_timer_count + 50
+    ├─ Cambia: state = BLOCKED
+    ├─ Llama: schedule()
+    │
+    └─ (Duerme aqui - no ejecuta más código)
+    
+    ▼ Mientras Proceso 1 duerme:
+    
+    Proceso 2 ejecuta (elegido por schedule)
+    
+    Timer interrupt cada ~10ms incrementa sys_timer_count
+    
+    Cuando sys_timer_count == wake_up_time:
+    ├─ handle_timer_irq() revisa todos BLOCKED
+    ├─ Encuentra: wake_up_time <= sys_timer_count ✓
+    ├─ Cambia: state = READY
+    └─ [KERNEL] Despertando proceso 1...
+    
+    Siguiente schedule():
+    └─ Puede elegir Proceso 1 nuevamente
+```
+
+#### Implementación Detallada
+
+```c
+// En PCB (sched.h):
+unsigned long wake_up_time;  // Momento (tick) para despertar
+
+// En kernel.c:
+void sleep(unsigned int ticks) {
+    // 1. Calcular cuando despertar
+    current_process->wake_up_time = sys_timer_count + ticks;
+    
+    // 2. Bloquear (scheduler no lo elige)
+    current_process->state = PROCESS_BLOCKED;
+    
+    // 3. Ceder CPU (otro proceso ejecuta)
+    schedule();
+    
+    // ← Proceso duerme aqui hasta timer lo despierte
+}
+
+// En handle_timer_irq():
+for (int i = 0; i < num_process; i++) {
+    if (process[i].state == BLOCKED) {
+        if (process[i].wake_up_time <= sys_timer_count) {
+            process[i].state = READY;  // Despertar
+        }
+    }
+}
+```
+
+#### Timing
+
+- **Cada timer interrupt**: ~10 ms
+- **sleep(100)**: ~1 segundo
+- **sleep(10)**: ~100 milisegundos
+- **Precisión**: ±10ms (depende de cuando se chequea)
+
+#### Ejemplo de Uso
+
+```c
+void proceso_1() {
+    enable_interrupts();  // Crítico: permitir timer
+    
+    int count = 0;
+    while(1) {
+        kprintf("[P1] Contador: %d\n", count++);
+        
+        // Dormir 50 ticks (~500ms)
+        // Otros procesos pueden ejecutar mientras tanto
+        sleep(50);
+    }
+}
+```
+
+#### Comparación con Otros Mecanismos
+
+| Mecanismo | Bloqueo | Duración | Uso |
+|-----------|---------|----------|-----|
+| **delay()** | No (consume CPU) | Precisa | Timing exacto |
+| **sleep()** | Sí (libera CPU) | Aproximada | Delays normales |
+| **sem_wait()** | Sí | Indefinida | Recursos/mutex |
+| **Condition var** | Sí | Indefinida/timeout | Eventos |
+
+#### Limitaciones
+
+- **No es exacto**: ±10ms de precisión
+- **Overhead**: Chequeo en cada interrupt (~50 ciclos)
+- **Proceso duerme más**: Espera a ser seleccionado nuevamente
+- **Requiere interrupts**: Sin enable_interrupts(), nunca despierta
+
+---
+
 ## Decisiones de Diseño
 
 ### ✅ Decisiones Acertadas

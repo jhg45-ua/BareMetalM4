@@ -368,6 +368,133 @@ void schedule() {
     }
 }
 
+volatile unsigned long sys_timer_count = 0;
+
+void timer_tick() {
+    sys_timer_count++;
+
+    for (int i = 0; i < num_process; i++) {
+        if (process[i].state == PROCESS_BLOCKED) {
+            if (process[i].wake_up_time <= sys_timer_count) {
+                process[i].state = PROCESS_READY;
+                kprintf(" [KERNEL] Despertando proceso %d en tick %d\n", i, sys_timer_count);
+            }
+        }
+    }
+}
+
+/* ========================================================================== */
+/* SLEEP: DORMIR UN PROCESO POR TIEMPO DETERMINADO                         */
+/* ========================================================================== */
+
+/**
+ * @brief Duerme el proceso actual durante un numero de ticks del timer
+ * 
+ * @param ticks Numero de interrupciones de timer a esperar (aprox. ~10ms cada una)
+ * 
+ * @details
+ *   FUNCIONAMIENTO:
+ *   1. Calcula el \"tiempo de despertar\": wake_up_time = ahora + ticks
+ *   2. Marca el proceso como BLOCKED
+ *   3. Llama schedule() para ejecutar otro proceso
+ *   4. El timer interrupt revisa periodicamente si ya es hora de despertar
+ *   5. Cuando wake_up_time <= sys_timer_count, cambia a READY
+ *   6. Siguiente schedule() puede elegir este proceso nuevamente
+ * 
+ *   VENTAJAS RESPECTO A delay():
+ *   @code
+ *   delay(1000000);    // Quema CPU: bucle vacio, proceso no cede CPU
+ *                       // Otros procesos NO pueden ejecutar
+ *   
+ *   sleep(50);         // Duerme: proceso se bloquea, cede CPU
+ *                       // Otros procesos PUEDEN ejecutar
+ *   @endcode
+ * 
+ *   TIEMPO APROXIMADO:
+ *   - Cada timer interrupt = ~10ms (TIMER_INTERVAL = 2,000,000 / 19.2MHz)
+ *   - sleep(100) = ~1 segundo
+ *   - sleep(10) = ~100 milisegundos
+ * 
+ *   IMPLEMENTACION DETALLES:
+ *   - sys_timer_count: Contador global incrementado por handle_timer_irq()
+ *   - current_process: Puntero al proceso ejecutandose (actualizado por schedule())\n *   - wake_up_time: Campo en PCB para almacenar momento de despertar
+ * 
+ *   FLUJO COMPLETO:
+ *   @code
+ *   Proceso 1 -> sleep(50)
+ *       |\\
+ *       |  Escribe: wake_up_time = sys_timer_count + 50
+ *       |  Escribe: state = BLOCKED
+ *       |  Llama: schedule()
+ *       |       |\\
+ *       |       v  Elige Proceso 2
+ *       |  Contexto switch -> Ejecuta Proceso 2
+ *       |                       (mientras sys_timer_count incrementa)
+ *       |\\
+ *       v  Timer interrupt en sys_timer_count = N+50
+ *       |  handle_timer_irq() chequea:
+ *       |       if (wake_up_time <= sys_timer_count) {
+ *       |           state = READY
+ *       |       }
+ *       |  Siguiente schedule() elige Proceso 1
+ *       v  Continua desde donde se durmio
+ *   @endcode
+ * 
+ *   NOTAS SOBRE PRECISION:
+ *   - NO es exacta: se revisa cada ~10ms
+ *   - El proceso puede dormir mas que lo solicitado
+ *     (espera a ser seleccionado nuevamente)
+ *   - Para timing critico, usar registros del timer directamente
+ *   - Para timing preciso sub-millisegundo, usar busy-wait (delay)
+ * 
+ *   COMPARACION CON OTROS MECANISMOS:
+ *   - sem_wait(): Espera recurso indefinidamente
+ *   - sleep(): Espera tiempo determinado
+ *   - Condition variable: Espera evento + timeout
+ * 
+ * @note Proceso debe tener interrupts habilitadas (enable_interrupts())
+ *       para que el timer pueda \"despertarlo\"
+ * 
+ * @warning Bloquea el proceso actual. Si llama sleep() en contexto
+ *          de interrupcion o con interrupts deshabilitadas,
+ *          nunca se desbloquea.
+ * 
+ * @see delay() para busy-wait (quema CPU pero synchrono)
+ * @see handle_timer_irq() para logica de desbloqueo basada en timer
+ * @see schedule() que ejecuta este proceso nuevamente
+ * @see sys_timer_count variable global del timer
+ */
+void sleep(unsigned int ticks) {
+    /**
+     * PASO 1: Calcular cuando despertar
+     * 
+     * Sumamos los ticks que esperar al contador actual
+     * Si: sys_timer_count = 100, ticks = 50
+     * Entonces: wake_up_time = 100 + 50 = 150
+     * 
+     * El timer interrupt revisara: if (150 <= sys_timer_count)
+     * Una vez que sys_timer_count llega a 150, se cambia a READY
+     */
+    current_process->wake_up_time = sys_timer_count + ticks;
+
+    /**
+     * PASO 2: Bloquear el proceso
+     * 
+     * Cambiar estado a BLOCKED indica que NO puede ejecutar
+     * El scheduler saltara este proceso hasta que se cambie a READY
+     */
+    current_process->state = PROCESS_BLOCKED;
+
+    /**
+     * PASO 3: Ceder la CPU
+     * 
+     * schedule() elegira otro proceso READY para ejecutar
+     * Este proceso dormira (no ejecutara mas instrucciones)
+     * hasta que handle_timer_irq() lo despierte
+     */
+    schedule();
+}
+
 /* ========================================================================== */
 /* PROCESOS DE USUARIO (PROCESOS DE PRUEBA)                                 */
 /* ========================================================================== */
@@ -401,7 +528,9 @@ void proceso_1() {
     int c = 0;
     while(1) {
         kprintf("[P1] Proceso 1 (Cuenta: %d)\n", c++);
-        delay(100000000); 
+        /* En vez de quemar CPU con delay_busy, nos echamos una siesta */
+        /* sleep(20) hará que el proceso ceda la CPU durante unos ~0.5 segundos */
+        sleep(70); 
     }
 }
 
@@ -427,7 +556,7 @@ void proceso_2() {
     int c = 0;
     while(1) {
         kprintf("     [P2] Proceso 2 (Cuenta: %d)\n", c++);
-        delay(100000000); 
+        sleep(10);
     }
 }
 

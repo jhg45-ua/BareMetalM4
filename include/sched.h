@@ -250,6 +250,52 @@ struct pcb {
      * @see schedule() en kernel.c para detalles
      */
     int priority;
+
+    /**
+     * @brief Momento (tick) en el que el proceso debe despertar
+     * 
+     * @details
+     *   Campo utilizado cuando el proceso esta BLOCKED esperando timer.
+     *   
+     *   SIGNIFICADO:
+     *   - wake_up_time = N: El proceso se desbloqueara cuando sys_timer_count >= N
+     *   - Inicialmente: No se usa (seria 0)
+     *   
+     *   FLUJO DE SLEEP:
+     *   1. Proceso llama sleep(ticks)
+     *   2. Se asigna: wake_up_time = sys_timer_count + ticks
+     *   3. Se marca: state = PROCESS_BLOCKED
+     *   4. Scheduler elige otro proceso
+     *   5. Timer interrupt cada ~10ms incrementa sys_timer_count
+     *   6. handle_timer_irq() revisa todos procesos BLOCKED
+     *   7. Si wake_up_time <= sys_timer_count: cambia state a READY
+     *   8. Siguiente schedule() puede elegir este proceso
+     *   
+     *   EJEMPLO:
+     *   @code
+     *   sys_timer_count = 100
+     *   sleep(50);  // Pedir dormir 50 ticks
+     *   wake_up_time = 100 + 50 = 150
+     *   state = BLOCKED
+     *   
+     *   (muchos ticks despues...)
+     *   sys_timer_count = 150
+     *   handle_timer_irq() chequea:
+     *       if (150 <= 150)  // true!
+     *       state = READY
+     *   
+     *   Siguiente schedule() puede correr este proceso
+     *   @endcode
+     *   
+     *   PRECISION:
+     *   - No es exacta: se revisa cada timer interrupt (~10ms)
+     *   - Puede haber delay adicional esperando ser seleccionado
+     *   - Para timing critico, usar timer registros directamente
+     * 
+     * @see sleep() en kernel.c para detalles de implementacion
+     * @see handle_timer_irq() para logica de desbloqueo
+     */
+    unsigned long wake_up_time;
 };
 
 #endif // SCHED_H

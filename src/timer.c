@@ -55,6 +55,8 @@
 #include "../include/io.h"
 #include "../include/types.h"
 
+extern void timer_tick();
+
 /* ========================================================================== */
 /* INICIALIZACION DEL SISTEMA DE INTERRUPCIONES                             */
 /* ========================================================================== */
@@ -381,6 +383,8 @@ void handle_timer_irq() {
          *   - El sistema tiene tiempo para ejecutar procesos
          */
         timer_set_tval(TIMER_INTERVAL);
+
+        timer_tick();
         
         /**
          * Llamar al scheduler para cambio de contexto
