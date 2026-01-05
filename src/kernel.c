@@ -114,8 +114,8 @@ void schedule() {
         current_process = next;
 
         /* Debug: Ver el cambio de contexto */
-        kprintf("--- Switch: P%d (Prior %d) -> P%d (Prior %d) ---\n", 
-               prev->pid, prev->priority, next->pid, next->priority);
+        // kprintf("--- Switch: P%d (Prior %d) -> P%d (Prior %d) ---\n", 
+        //        prev->pid, prev->priority, next->pid, next->priority);
 
         cpu_switch_to(prev, next);
     }
