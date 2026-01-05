@@ -1,6 +1,6 @@
 /* src/io.c */
 #include <stdarg.h>
-#include "io.h"
+#include "../include/io.h"
 
 /* Direccion del UART en QEMU virt */
 volatile unsigned int * const UART0_DIR = (unsigned int *)0x09000000;

@@ -1,8 +1,8 @@
 /* src/kernel.c */
-#include "types.h"
-#include "sched.h"
-#include "io.h"
-#include "timer.h"
+#include "../include/types.h"
+#include "../include/sched.h"
+#include "../include/io.h"
+#include "../include/timer.h"
 
 /* --- Herramientas Base del Kernel --- */
 

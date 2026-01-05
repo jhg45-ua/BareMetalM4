@@ -1,7 +1,7 @@
 /* src/timer.c */
-#include "timer.h"
-#include "io.h"
-#include "types.h"
+#include "../include/timer.h"
+#include "../include/io.h"
+#include "../include/types.h"
 
 void timer_init() {
     /* 1. Vectores */
