@@ -12,14 +12,20 @@ CFLAGS = -Wall -O2 -ffreestanding -nostdinc -I$(GCC_INC) -nostdlib \
 SRC_DIR = src
 BUILD_DIR = build
 
-# Archivos fuente (se buscan automáticamente)
+# Archivos fuente (se buscan automáticamente en subdirectorios)
 ASM_SRCS = $(wildcard $(SRC_DIR)/*.S)
-C_SRCS = $(wildcard $(SRC_DIR)/*.c)
+C_SRCS = $(wildcard $(SRC_DIR)/*.c) \
+         $(wildcard $(SRC_DIR)/kernel/*.c) \
+         $(wildcard $(SRC_DIR)/shell/*.c) \
+         $(wildcard $(SRC_DIR)/utils/*.c)
 
-# Archivos objeto (conversión automática)
+# Archivos objeto (conversión automática con soporte para subdirectorios)
 ASM_OBJS = $(patsubst $(SRC_DIR)/%.S, $(BUILD_DIR)/%.o, $(ASM_SRCS))
 C_OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(C_SRCS))
 OBJS = $(ASM_OBJS) $(C_OBJS)
+
+# Directorios de build necesarios
+BUILD_SUBDIRS = $(BUILD_DIR)/kernel $(BUILD_DIR)/shell $(BUILD_DIR)/utils
 
 # Archivos finales
 ELF = $(BUILD_DIR)/baremetalm4.elf
@@ -36,8 +42,8 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.S | $(BUILD_DIR)
 	@echo "[ASM] $<"
 	@$(CC) $(CFLAGS) -c $< -o $@
 
-# Regla para compilar archivos .c
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
+# Regla para compilar archivos .c (con soporte para subdirectorios)
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR) $(BUILD_SUBDIRS)
 	@echo "[CC]  $<"
 	@$(CC) $(CFLAGS) -c $< -o $@
 
@@ -50,6 +56,10 @@ $(ELF): $(OBJS) $(LINKER_SCRIPT)
 # Crear directorio de build
 $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)
+
+# Crear subdirectorios de build
+$(BUILD_SUBDIRS): | $(BUILD_DIR)
+	@mkdir -p $@
 
 # Ejecutar en QEMU
 run: $(ELF)

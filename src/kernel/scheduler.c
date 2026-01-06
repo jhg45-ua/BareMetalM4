@@ -1,0 +1,125 @@
+/**
+ * @file scheduler.c
+ * @brief Planificador de procesos con prioridades y aging
+ * 
+ * @details
+ *   Implementa el scheduler del sistema operativo:
+ *   - Algoritmo de prioridades con aging
+ *   - Sistema de sleep/wake para procesos
+ *   - Manejo de timer ticks
+ * 
+ * @section ALGORITMO_SCHEDULER
+ *   El scheduler implementa un algoritmo de prioridades con "aging":
+ *   1. ENVEJECIMIENTO: Para procesos esperando, priority--
+ *   2. SELECCION: Buscar el READY con MENOR priority
+ *   3. PENALIZACION: Aumentar priority del seleccionado para evitar monopolio
+ * 
+ * @author Sistema Operativo Educativo BareMetalM4
+ * @version 0.3
+ */
+
+#include "../../include/types.h"
+#include "../../include/sched.h"
+#include "../../include/io.h"
+#include "../../include/kernel/process.h"
+#include "../../include/kernel/scheduler.h"
+
+/* ========================================================================== */
+/* FUNCIONES EXTERNAS (Ensamblador)                                         */
+/* ========================================================================== */
+
+/* Context switch entre dos procesos (src/entry.S) */
+extern void cpu_switch_to(struct pcb *prev, struct pcb *next);
+
+/* ========================================================================== */
+/* SCHEDULER - ALGORITMO DE PRIORIDADES CON AGING                           */
+/* ========================================================================== */
+
+/**
+ * @brief Planificador de procesos (Scheduler)
+ * 
+ * Implementa un algoritmo de prioridades con aging para evitar starvation.
+ * El proceso con menor valor de priority tiene mayor prioridad de ejecución.
+ */
+void schedule(void) {
+    /* 1. Fase de Envejecimiento */
+    for (int i = 0; i < num_process; i++) {
+        if (process[i].state == PROCESS_READY && i != current_process->pid) {
+            if (process[i].priority > 0) {
+                process[i].priority--;
+            }
+        }
+    }
+
+    /* 2. Fase de Elección */
+    int next_pid = -1;
+    int highest_priority_found = 1000;
+
+    for (int i = 0; i < num_process; i++) {
+        if (process[i].state == PROCESS_READY || process[i].state == PROCESS_RUNNING) {
+            if (process[i].priority < highest_priority_found) {
+                highest_priority_found = process[i].priority;
+                next_pid = i;
+            }
+        }
+    }
+
+    if (next_pid == -1) return;
+
+    struct pcb *next = &process[next_pid];
+    struct pcb *prev = current_process;
+
+    /* Penalizar tarea seleccionada para evitar monopolio */
+    if (next->priority < 10) {
+        next->priority += 2;
+    }
+
+    if (prev != next) {
+        if (prev->state == PROCESS_RUNNING) prev->state = PROCESS_READY;
+        next->state = PROCESS_RUNNING;
+        current_process = next;
+
+        cpu_switch_to(prev, next);
+    }
+}
+
+/* ========================================================================== */
+/* TIMER TICK: ACTUALIZACION DEL SISTEMA DE TIEMPO Y DESPERTAR PROCESOS      */
+/* ========================================================================== */
+
+/* Contador global de ticks del sistema */
+volatile unsigned long sys_timer_count = 0;
+
+/**
+ * @brief Manejador de ticks del timer
+ * 
+ * Se ejecuta en cada interrupción del timer para:
+ * - Incrementar el contador de ticks
+ * - Despertar procesos bloqueados cuando corresponde
+ */
+void timer_tick(void) {
+    sys_timer_count++;
+
+    for (int i = 0; i < num_process; i++) {
+        if (process[i].state == PROCESS_BLOCKED) {
+            if (process[i].wake_up_time <= sys_timer_count) {
+                process[i].state = PROCESS_READY;
+                // kprintf(" [KERNEL] Despertando proceso %d en tick %d\n", i, sys_timer_count);    // DEBUG
+            }
+        }
+    }
+}
+
+/* ========================================================================== */
+/* SLEEP: DORMIR UN PROCESO POR TIEMPO DETERMINADO                         */
+/* ========================================================================== */
+
+/**
+ * @brief Duerme el proceso actual durante un número de ticks del timer
+ * @param ticks Número de ticks del timer a dormir
+ */
+void sleep(unsigned int ticks) {
+    current_process->wake_up_time = sys_timer_count + ticks;
+    current_process->state = PROCESS_BLOCKED;
+    schedule();
+}

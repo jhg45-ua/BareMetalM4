@@ -2,15 +2,16 @@
 
 ## 📋 Tabla de Contenidos
 1. [Visión General](#visión-general)
-2. [Componentes Principales](#componentes-principales)
-3. [Flujo de Ejecución](#flujo-de-ejecución)
-4. [Subsistema de Planificación (Scheduler)](#subsistema-de-planificación)
-5. [Subsistema de Interrupciones](#subsistema-de-interrupciones)
-6. [Sincronización entre Procesos](#sincronización-entre-procesos)
-7. [Sistema de E/S](#sistema-de-es)
-8. [Estructura de Memoria](#estructura-de-memoria)
-9. [Decisiones de Diseño](#decisiones-de-diseño)
-10. [Limitaciones y Mejoras Futuras](#limitaciones-y-mejoras-futuras)
+2. [Estructura del Código](#estructura-del-código)
+3. [Componentes Principales](#componentes-principales)
+4. [Flujo de Ejecución](#flujo-de-ejecución)
+5. [Subsistema de Planificación (Scheduler)](#subsistema-de-planificación)
+6. [Subsistema de Interrupciones](#subsistema-de-interrupciones)
+7. [Sincronización entre Procesos](#sincronización-entre-procesos)
+8. [Sistema de E/S](#sistema-de-es)
+9. [Estructura de Memoria](#estructura-de-memoria)
+10. [Decisiones de Diseño](#decisiones-de-diseño)
+11. [Limitaciones y Mejoras Futuras](#limitaciones-y-mejoras-futuras)
 
 ---
 
@@ -32,6 +33,175 @@
 
 ---
 
+## Estructura del Código
+
+El kernel está organizado en **módulos especializados** siguiendo el principio de **separación de responsabilidades**. Esta refactorización (Enero 2026) dividió el código monolítico original en componentes bien definidos.
+
+### Organización de Directorios
+
+```
+BareMetalM4/
+├── include/
+│   ├── io.h              # Interfaz UART yprintf
+│   ├── sched.h           # Definiciones de PCB y estados
+│   ├── semaphore.h       # Primitivas de sincronización
+│   ├── timer.h           # Configuración GIC y timer
+│   ├── types.h           # Tipos básicos del sistema
+│   └── kernel/           # Headers de módulos del kernel
+│       ├── kutils.h      #   Utilidades generales
+│       ├── process.h     #   Gestión de procesos
+│       ├── scheduler.h   #   Planificador
+│       └── shell.h       #   Shell y procesos de prueba
+│
+├── src/
+│   ├── boot.S            # Punto de entrada (ensamblador)
+│   ├── entry.S           # Context switch y handlers IRQ
+│   ├── vectors.S         # Tabla de excepciones (VBAR_EL1)
+│   ├── locks.S           # Spinlocks (LDXR/STXR)
+│   ├── utils.S           # Utilidades de sistema
+│   ├── io.c              # Driver UART y kprintf
+│   ├── timer.c           # Inicialización GIC y timer
+│   ├── semaphore.c       # Implementación de semáforos
+│   │
+│   ├── kernel/           # Módulos del kernel
+│   │   ├── kernel_main.c #   Punto de entrada e inicialización
+│   │   ├── process.c     #   Gestión de PCB y threads
+│   │   └── scheduler.c   #   Algoritmo de scheduling
+│   │
+│   ├── shell/            # Interfaz de usuario
+│   │   └── shell.c       #   Shell interactivo y procesos demo
+│   │
+│   └── utils/            # Utilidades generales
+│       └── kutils.c      #   panic, delay, strcmp, strncpy
+│
+└── docs/
+    └── ARCHITECTURE.md   # Este documento
+```
+
+### Módulos del Kernel
+
+#### 1. **kutils** (Utilidades del Kernel)
+**Archivos**: `src/utils/kutils.c`, `include/kernel/kutils.h`
+
+**Responsabilidad**: Funciones de utilidad general del kernel
+
+| Función | Descripción |
+|---------|-------------|
+| `panic()` | Detiene el sistema con mensaje de error crítico |
+| `delay()` | Retardo activo (busy-wait) para timing preciso |
+| `k_strcmp()` | Comparación de cadenas (sin libc) |
+| `k_strncpy()` | Copia de cadenas con límite de longitud |
+
+**Uso**: Funciones base utilizadas por todos los módulos del sistema.
+
+---
+
+#### 2. **process** (Gestión de Procesos)
+**Archivos**: `src/kernel/process.c`, `include/kernel/process.h`
+
+**Responsabilidad**: Administración del ciclo de vida de procesos
+
+| Componente | Descripción |
+|------------|-------------|
+| **Variables Globales** | `process[]`, `current_process`, `num_process`, `process_stack[]` |
+| `create_thread()` | Crea nuevos threads del kernel con prioridad y nombre |
+| `exit()` | Termina el proceso actual (estado → ZOMBIE) |
+| `schedule_tail()` | Hook post-context-switch (futuras extensiones) |
+
+**Estructura de Datos**:
+```c
+struct pcb {
+    struct cpu_context context;  // x19-x30, sp, pc
+    int state;                   // RUNNING, READY, BLOCKED, ZOMBIE
+    int pid;                     // Process ID
+    int priority;                // 0=máxima, 255=mínima
+    unsigned long wake_up_time;  // Para sleep()
+    char name[16];               // Nombre descriptivo
+};
+```
+
+---
+
+#### 3. **scheduler** (Planificador)
+**Archivos**: `src/kernel/scheduler.c`, `include/kernel/scheduler.h`
+
+**Responsabilidad**: Planificación de procesos con algoritmo de prioridades + aging
+
+| Función | Descripción |
+|---------|-------------|
+| `schedule()` | Selecciona próximo proceso (aging + prioridades) |
+| `timer_tick()` | Handler de interrupciones del timer |
+| `sleep()` | Bloquea proceso actual por N ticks |
+| `sys_timer_count` | Contador global de ticks del sistema |
+
+**Algoritmo**: Ver sección [Subsistema de Planificación](#subsistema-de-planificación) más abajo.
+
+---
+
+#### 4. **shell** (Interfaz de Usuario)
+**Archivos**: `src/shell/shell.c`, `include/kernel/shell.h`
+
+**Responsabilidad**: Shell interactivo y procesos de prueba
+
+| Función | Descripción |
+|---------|-------------|
+| `shell_task()` | Shell con comandos: help, ps, clear, panic, poweroff |
+| `proceso_1()` | Proceso de prueba #1 (contador con sleep) |
+| `proceso_2()` | Proceso de prueba #2 (contador con sleep) |
+| `proceso_mortal()` | Proceso que termina automáticamente |
+
+**Comandos Disponibles**:
+- `help` - Muestra comandos disponibles
+- `ps` - Lista procesos (PID, prioridad, estado, nombre)
+- `clear` - Limpia la pantalla (ANSI codes)
+- `panic` - Provoca un kernel panic (demo)
+- `poweroff` - Apaga el sistema (QEMU)
+
+---
+
+#### 5. **kernel_main** (Inicialización)
+**Archivo**: `src/kernel/kernel_main.c`
+
+**Responsabilidad**: Punto de entrada e inicialización del sistema
+
+```c
+void kernel() {
+    // 1. Inicializar kernel como Proceso 0
+    current_process = &process[0];
+    current_process->pid = 0;
+    current_process->state = PROCESS_RUNNING;
+    
+    // 2. Crear shell y procesos de prueba
+    create_thread(shell_task, 1, "Shell");
+    create_thread(proceso_mortal, 5, "Proceso Mortal");
+    
+    // 3. Inicializar timer (GIC + interrupciones)
+    timer_init();
+    
+    // 4. Loop principal (WFI)
+    while(1) {
+        asm volatile("wfi");  // Wait For Interrupt
+    }
+}
+```
+
+---
+
+### Ventajas de la Arquitectura Modular
+
+| Ventaja | Descripción |
+|---------|-------------|
+| **Modularidad** | Cada módulo tiene responsabilidad única y bien definida |
+| **Mantenibilidad** | Más fácil encontrar y modificar código específico |
+| **Reusabilidad** | Módulos pueden ser usados por otros componentes |
+| **Escalabilidad** | Agregar funcionalidades es más sencillo |
+| **Legibilidad** | Archivos pequeños, más fáciles de entender |
+| **Testabilidad** | Módulos pueden probarse de forma aislada |
+
+**Ejemplo**: Para modificar el algoritmo de scheduling, solo se edita `scheduler.c` sin tocar código de procesos, shell o utilidades.
+
+---
+
 ## Componentes Principales
 
 ### 1. **Boot y Inicialización** (`boot.S`)
@@ -50,7 +220,7 @@
            │
            ▼
 ┌─────────────────────────────┐
-│  kernel() [kernel.c]        │
+│  kernel() [kernel_main.c]   │
 │  - Inicializa scheduler     │
 │  - Crea procesos            │
 │  - timer_init()             │
@@ -67,27 +237,39 @@ Responsabilidades:
 
 ---
 
-### 2. **Núcleo del Kernel** (`kernel.c`)
+### 2. **Núcleo del Kernel** (Módulos)
 
-Funciones críticas:
+El kernel está dividido en módulos especializados (ver [Estructura del Código](#estructura-del-código)):
 
-| Función | Propósito |
-|---------|-----------|
-| `kernel()` | Punto de entrada principal, inicializa subsistemas |
-| `schedule()` | Selecciona siguiente proceso a ejecutar (algoritmo de aging) |
-| `create_thread()` | Crea nuevo proceso con stack y contexto |
-| `panic()` | Maneja errores fatales |
-| `delay()` | Busy-wait para timing |
+**Módulos Principales**:
 
-**Estructura**:
+| Módulo | Archivo | Responsabilidad |
+|--------|---------|----------------|
+| **Inicialización** | `kernel_main.c` | Punto de entrada, setup del sistema |
+| **Gestión de Procesos** | `process.c` | PCB, create_thread, exit |
+| **Planificador** | `scheduler.c` | Algoritmo de aging, sleep, timer_tick |
+| **Shell** | `shell.c` | Interfaz de comandos, procesos demo |
+| **Utilidades** | `kutils.c` | panic, delay, strcmp, strncpy |
+
+**Estructura de PCB**:
 ```c
 struct pcb {
-    struct cpu_context context;  // Registros guardados
+    struct cpu_context context;  // Registros guardados (x19-x30, sp, pc)
     int state;                   // RUNNING, READY, BLOCKED, ZOMBIE
-    int pid;                     // Identificador
+    int pid;                     // Identificador único
     int priority;                // 0=máxima, 255=mínima
     int preempt_count;           // Contador de desalojamiento
+    unsigned long wake_up_time;  // Tick para despertar (sleep)
+    char name[16];               // Nombre descriptivo del proceso
 };
+```
+
+**Variables Globales** (definidas en `process.c`):
+```c
+struct pcb process[MAX_PROCESS];              // Array de 64 PCBs
+struct pcb *current_process;                  // Proceso en ejecución
+int num_process;                              // Contador de procesos
+uint8_t process_stack[MAX_PROCESS][4096];    // Stacks (256KB total)
 ```
 
 ---
@@ -405,10 +587,16 @@ Ubicación: `src/io.c`, `include/io.h`
    │   └─ Salta a kernel() en kernel.c
    └─ (No retorna)
 
-3. kernel.c ejecuta:
-   ├─ Crea 2 procesos (proceso_1, proceso_2)
-   │   ├─ Cada uno con stack de 4 KB
-   │   ├─ cpu_context con x30 = dirección de función
+3. kernel_main.c ejecuta:
+   ├─ Inicializa Kernel como Proceso 0
+   │   ├─ PID = 0, state = RUNNING
+   │   ├─ priority = 20 (media-baja)
+   │   └─ name = "Kernel"
+   ├─ Crea procesos:
+   │   ├─ shell_task (prioridad 1) - Shell interactivo
+   │   └─ proceso_mortal (prioridad 5) - Demo
+   │   └─ Cada uno con stack de 4 KB
+   │   └─ cpu_context con x30 = dirección de función
    ├─ timer_init() configura:
    │   ├─ Tabla de excepciones (VBAR_EL1)
    │   ├─ GIC distribuidor (0x08000000)
@@ -724,5 +912,29 @@ void proceso_1() {
 
 ---
 
-**Última actualización**: Enero 2026  
-**Versión**: 0.3
+**Última actualización**: Enero 6, 2026  
+**Versión**: 0.3  
+**Refactorización**: Estructura modular implementada (Enero 2026)
+
+---
+
+## Historial de Cambios
+
+### v0.3 - Enero 2026
+- ✅ Refactorización completa del kernel en módulos especializados
+- ✅ Separación de responsabilidades: process, scheduler, shell, kutils
+- ✅ Headers organizados en `include/kernel/`
+- ✅ Shell interactivo con comandos (help, ps, clear, panic, poweroff)
+- ✅ Nombres descriptivos para procesos (campo `name` en PCB)
+- ✅ Mejora en mantenibilidad y escalabilidad del código
+
+### v0.2 - 2025
+- Implementación de sleep() con wake_up_time
+- Sistema de semáforos con spinlocks
+- Planificador con aging para prevenir starvation
+
+### v0.1 - 2025
+- Boot en ARM64 con soporte multicore
+- Context switch básico
+- Timer interrupts con GIC v2
+- Driver UART simple

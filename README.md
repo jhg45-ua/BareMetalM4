@@ -27,15 +27,22 @@ Este proyecto demuestra cómo arrancar un procesador de 64 bits desde cero, gest
 
 ## 📂 Estructura del Código
 
+**Nota**: El kernel ha sido refactorizado en módulos especializados (v0.3 - Enero 2026). Ver [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) para detalles completos.
+
 | Archivo | Descripción Técnica |
 | :--- | :--- |
 | **`src/boot.S`** | Punto de entrada (`_start`). Lee `MPIDR_EL1` para detener núcleos secundarios, configura el Stack Pointer (`sp`) y salta a C. |
 | **`src/entry.S`** | Implementa `cpu_switch_to` (cambio de contexto en procesos). Guarda/restaura registros *callee-saved* (`x19`-`x30`) y stack pointer. Incluye `irq_handler_stub` para manejo de interrupciones con preservación completa de contexto. |
-| **`src/kernel.c`** | Lógica principal. Inicializa el sistema, scheduler con Aging, crea dos hilos de ejemplo (`proceso_1` / `proceso_2`) y habilita el timer para expropiación. |
+| **`src/kernel/kernel_main.c`** | Punto de entrada principal. Inicializa el sistema, scheduler con Aging, crea shell y procesos de prueba, habilita timer. |
+| **`src/kernel/process.c`** | Gestión de procesos: PCB, `create_thread()`, `exit()`, variables globales (`process[]`, `current_process`, stacks). |
+| **`src/kernel/scheduler.c`** | Algoritmo de scheduling con aging y prioridades, `sleep()`, `timer_tick()`, gestión de `sys_timer_count`. |
+| **`src/shell/shell.c`** | Shell interactivo con comandos (help, ps, clear, panic, poweroff). Procesos de prueba (`proceso_1`, `proceso_2`, `proceso_mortal`). |
+| **`src/utils/kutils.c`** | Utilidades del kernel: `panic()`, `delay()`, `k_strcmp()`, `k_strncpy()`. |
 | **`src/locks.S`** | Primitivas atómicas `spin_lock` y `spin_unlock` con instrucciones exclusivas (`ldxr`/`stxr`) y barreras de memoria (`dmb sy`). |
 | **`src/timer.c`** | Inicialización del GIC v2, setup del timer virtual (`CNTP_TVAL_EL0`), y manejador `handle_timer_irq` para expropiación del scheduler. |
 | **`src/vectors.S`** | Tabla de vectores de excepciones (`VBAR_EL1`). Enruta IRQs, SysCalls, excepciones de sincronización, etc. |
 | **`src/utils.S`** | Funciones utilidad en ensamblador. Setup de registros del sistema (`VBAR_EL1`, `SPSEL`, etc.). |
+| **`include/kernel/`** | Headers de módulos: `kutils.h`, `process.h`, `scheduler.h`, `shell.h`. |
 | **`include/sched.h`** | Define estructura del PCB (`struct pcb`) con contexto de CPU (`struct cpu_context`) y estados de proceso. |
 | **`include/timer.h`** | Defines para el GIC v2 (registros y direcciones) y configuración del timer. |
 | **`link.ld`** | Script de enlazado. Define mapa de memoria y símbolos globales como `_stack_top` y `vectors`. |
@@ -137,9 +144,28 @@ El timer del sistema genera una interrupción cada `TIMER_INTERVAL` ciclos:
    - Escribir en EOIR (End of Interrupt Register) señaliza fin de la interrupción
    - Si es el timer (ID 30), recarga el valor del timer y llama a `schedule()`
 
-### 6. Demo actual y Semáforos disponibles
-- **Demo actual:** Dos hilos (`proceso_1`, `proceso_2`) imprimen contadores mientras el timer expropia periódicamente, mostrando el cambio de contexto en vivo.
-- **Semáforos (`sem_wait` / `sem_signal`):** Disponibles en `src/semaphore.c` con spinlock global para atomicidad. No se usan en la demo por defecto; puedes integrarlos en tus propios hilos para experimentar bloqueo/desbloqueo cooperativo + expropiativo.
+### 6. Demo actual y Shell interactivo
+- **Shell Interactivo:** El sistema arranca con un shell que acepta comandos:
+  - `help` - Muestra comandos disponibles
+  - `ps` - Lista todos los procesos (PID, prioridad, estado, nombre)
+  - `clear` - Limpia la pantalla
+  - `panic` - Provoca un kernel panic (demo)
+  - `poweroff` - Apaga el sistema
+- **Procesos de Prueba:** Se pueden crear procesos que imprimen contadores mientras el timer expropia periódicamente, mostrando el cambio de contexto en vivo.
+- **Semáforos (`sem_wait` / `sem_signal`):** Disponibles en `src/semaphore.c` con spinlock global para atomicidad. Puedes integrarlos en tus propios procesos para experimentar bloqueo/desbloqueo cooperativo + expropiativo.
+
+---
+
+## 📖 Documentación Completa
+
+Para una guía detallada de la arquitectura, módulos y funcionamiento interno del sistema, consulta:
+
+- **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** - Arquitectura completa del kernel
+  - Estructura modular del código
+  - Componentes principales
+  - Flujo de ejecución
+  - Subsistemas (scheduler, interrupciones, sincronización)
+  - Decisiones de diseño
 
 ---
 *Proyecto educativo para demostración de sistemas operativos en AArch64.*
