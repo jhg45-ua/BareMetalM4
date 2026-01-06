@@ -69,6 +69,32 @@ extern void timer_init(void);
 /* Habilita las interrupciones IRQ en el procesador */
 extern void enable_interrupts(void);
 
+/* Punto de entrada para nuevos procesos (src/entry.S) */
+extern void ret_from_fork(void);
+
+/* ========================================================================== */
+/* TERMINACION DE PROCESOS                                                   */
+/* ========================================================================== */
+
+/* Termina el proceso actual y cede el CPU */
+void exit() {
+    enable_interrupts();
+
+    kprintf("\n[KERNEL] Proceso %d (%d) ha terminado. Muriendo...\n", 
+            current_process->pid, current_process->priority);
+
+    /* Marcar como zombie (PCB persiste hasta implementar wait/reaper) */
+    current_process->state = PROCESS_ZOMBIE;
+
+    /* Ceder CPU (schedule() nunca nos volvera a elegir) */
+    schedule();
+}
+
+/* Hook post-fork (reservado para futuras extensiones) */
+void schedule_tail(void) {
+    /* Placeholder para logica post-context-switch */
+}
+
 /* ========================================================================== */
 /* CREACION DE PROCESOS                                                      */
 /* ========================================================================== */
@@ -83,8 +109,8 @@ int create_thread(void (*fn)(void), int priority) {
     p->prempt_count = 0;
     p->priority = priority;
 
-    p->context.x19 = 0;
-    p->context.pc = (unsigned long)fn;
+    p->context.x19 = (unsigned long)fn; /* <--- Guardamos la funcion en x19 */
+    p->context.pc = (unsigned long)ret_from_fork; /* <--- El PC apunta al wrapper */
     /* La pila crece hacia abajo, apuntamos al final del bloque de 4KB */
     p->context.sp = (unsigned long)&process_stack[num_process][4096];
 
@@ -195,6 +221,21 @@ void proceso_2() {
     }
 }
 
+/* Tarea que cuenta hasta 3 y muere */
+void proceso_mortal() {
+    enable_interrupts();
+    
+    for (int i = 0; i < 3; i++) {
+        kprintf("     [MORTAL] Vida restante: %d\n", 3 - i);
+        sleep(15); /* Duerme un poco */
+    }
+
+    kprintf("     [MORTAL] Adios mundo cruel...\n");
+    /* AQUÍ OCURRE LA MAGIA:
+       Al terminar el for, la función hace 'return'.
+       El wrapper 'ret_from_fork' captura ese retorno y llama a 'exit()'. */
+}
+
 /* ========================================================================== */
 /* PUNTO DE ENTRADA DEL KERNEL                                              */
 /* ========================================================================== */
@@ -213,7 +254,7 @@ void kernel() {
     num_process = 1;
 
     create_thread(proceso_1, 1);
-    create_thread(proceso_2, 1);
+    create_thread(proceso_mortal, 1);
 
     timer_init();
 

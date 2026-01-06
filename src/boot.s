@@ -10,6 +10,7 @@
 
 .section .text
 .global _start
+.global hang
 
 _start:
     /* PASO 1: Identificar el Core (solo core 0 ejecuta el kernel) */

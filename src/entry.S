@@ -3,6 +3,8 @@
 .global cpu_switch_to
 .global irq_handler_stub
 .global enable_interrupts
+.global ret_from_fork
+.global exit
 
 /* 
  * cpu_switch_to - Cambio de contexto entre procesos
@@ -111,3 +113,24 @@ irq_handler_stub:
     
     /* Retornar de la excepcion */
     eret
+
+/* 
+ * ret_from_fork - Retorno desde fork hacia el nuevo proceso
+ * 
+ * Parametros:
+ *   x0 = puntero a la funcion del usuario (fn)
+ * 
+ *  Configura el contexto inicial del nuevo proceso y salta a su
+ *  funcion principal.
+ */
+ret_from_fork:
+    bl schedule_tail
+
+    mov x0, x19        /* Recuperamos la funcion real desde x19 */
+    blr x0              /* Saltamos a la funcion del usuario: fn() */
+
+    /* Si la funcion retorna (acaba), caemos aqui */
+    bl exit             /* Llamamos a exit() para morir ordenadamente */
+
+    /* Nunca deberiamos llegar aqui, pero por si acaso... */
+    bl hang
