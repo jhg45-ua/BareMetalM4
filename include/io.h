@@ -21,6 +21,10 @@ void uart_putc(char c);
  */
 void uart_puts(const char *s);
 
+void uart_irq_init();
+void uart_handle_irq();
+char uart_getc_nonblocking();
+
 /**
  * @brief Imprime con formato (similar a printf)
  * @param fmt Cadena de formato

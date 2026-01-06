@@ -180,7 +180,7 @@ void timer_tick() {
         if (process[i].state == PROCESS_BLOCKED) {
             if (process[i].wake_up_time <= sys_timer_count) {
                 process[i].state = PROCESS_READY;
-                kprintf(" [KERNEL] Despertando proceso %d en tick %d\n", i, sys_timer_count);
+                // kprintf(" [KERNEL] Despertando proceso %d en tick %d\n", i, sys_timer_count);    // DEBUG
             }
         }
     }
@@ -195,6 +195,88 @@ void sleep(unsigned int ticks) {
     current_process->wake_up_time = sys_timer_count + ticks;
     current_process->state = PROCESS_BLOCKED;
     schedule();
+}
+
+/* Función auxiliar simple para comparar cadenas */
+int strcmp(const char *s1, const char *s2) {
+    while (*s1 && (*s1 == *s2)) { s1++; s2++; }
+    return *(const unsigned char*)s1 - *(const unsigned char*)s2;
+}
+
+/* --- LA TAREA SHELL --- */
+void shell_task() {
+    enable_interrupts();
+    
+    char command_buf[64];
+    int idx = 0;
+
+    kprintf("\n[SHELL] Bienvenido a BareMetalM4 OS v0.3\n");
+    kprintf("[SHELL] Escribe 'help' para ver comandos.\n");
+    kprintf("> "); // Prompt
+
+    while (1) {
+        /* 1. Intentamos leer una tecla */
+        char c = uart_getc_nonblocking();
+
+        if (c == 0) {
+            /* Si no hay tecla, dormimos un poco para no quemar CPU */
+            /* Esto hace que el shell sea eficiente */
+            sleep(1); 
+            continue;
+        }
+
+        /* 2. Eco local (mostrar lo que escribes) */
+        /* Si es Enter (Carriage Return '\r'), procesamos */
+        if (c == '\r') {
+            uart_putc('\n'); // Salto de línea visual
+            command_buf[idx] = '\0'; // Terminador de string
+
+            /* --- EJECUCIÓN DE COMANDOS --- */
+            if (strcmp(command_buf, "help") == 0) {
+                kprintf("Comandos disponibles:\n");
+                kprintf("  help   - Muestra esta ayuda\n");
+                kprintf("  ps     - Lista los procesos (simulado)\n");
+                kprintf("  clear  - Limpia la pantalla\n");
+                kprintf("  panic  - Provoca un Kernel Panic\n");
+            } 
+            else if (strcmp(command_buf, "ps") == 0) {
+                kprintf("PID | Priority | State\n");
+                kprintf("----|----------|------\n");
+                for(int i=0; i<num_process; i++) {
+                     kprintf(" %d  |    %d     |  %d\n", process[i].pid, process[i].priority, process[i].state);
+                }
+            }
+            else if (strcmp(command_buf, "clear") == 0) {
+                /* Código ANSI para limpiar terminal */
+                kprintf("\033[2J\033[H");
+                kprintf("BareMetalM4 Shell\n");
+            }
+            else if (strcmp(command_buf, "panic") == 0) {
+                panic("Usuario solicito panico");
+            }
+            else if (idx > 0) {
+                kprintf("Comando desconocido: %s\n", command_buf);
+            }
+
+            /* Resetear buffer y prompt */
+            idx = 0;
+            kprintf("> ");
+        } 
+        /* Si es Backspace (borrar) */
+        else if (c == 127 || c == '\b') {
+            if (idx > 0) {
+                idx--;
+                uart_puts("\b \b"); // Truco visual para borrar en terminal
+            }
+        }
+        /* Carácter normal */
+        else {
+            if (idx < 63) {
+                command_buf[idx++] = c;
+                uart_putc(c); // Eco
+            }
+        }
+    }
 }
 
 /* ========================================================================== */
@@ -253,8 +335,10 @@ void kernel() {
     current_process->priority = 20;
     num_process = 1;
 
-    create_thread(proceso_1, 1);
-    create_thread(proceso_mortal, 1);
+    create_thread(shell_task, 1);
+
+    // create_thread(proceso_1, 5);
+    // create_thread(proceso_mortal, 5);
 
     timer_init();
 

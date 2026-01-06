@@ -55,6 +55,11 @@
 #include "../include/io.h"
 #include "../include/types.h"
 
+/* Definimos GICD_ISENABLER para habilitar IDs */
+/* ID 0-31 están en ISENABLER0 (Offset 0x100) */
+/* ID 32-63 están en ISENABLER1 (Offset 0x104) */
+#define GICD_ISENABLER1 ((volatile uint32_t *)(GICD_BASE + 0x104))
+
 extern void timer_tick();
 
 /* Inicializa el sistema de interrupciones y el timer del sistema */
@@ -64,6 +69,11 @@ void timer_init() {
 
     /* PASO 2: Inicializar el GIC (Generic Interrupt Controller) */
     *GICD_ISENABLER = (1 << 30);  /* Habilitar IRQ 30 (timer) */
+
+    /* Habilitar UART (ID 33) en ISENABLER1. 
+       El bit es (33 - 32) = 1 */
+    *GICD_ISENABLER1 = (1 << 1);
+
     *GICD_CTLR = 1;                /* Activar distribuidor */
     *GICC_PMR = 0xFF;              /* Permitir todas las prioridades */
     *GICC_CTLR = 1;                /* Activar interfaz de CPU */
@@ -72,7 +82,10 @@ void timer_init() {
     timer_set_tval(TIMER_INTERVAL);  /* Cargar intervalo */
     timer_set_ctl(1);                 /* Habilitar timer */
 
-    /* PASO 4: Habilitar interrupciones en el CPU */
+    /* PASO 4: Configurar UART Hardware para interrumpir */
+    uart_irq_init();
+
+    /* PASO 5: Habilitar interrupciones en el CPU */
     enable_interrupts();
 }
 
@@ -97,5 +110,10 @@ void handle_timer_irq() {
         
         /* Llamar al scheduler para cambio de contexto */
         schedule();
+    } else if (id == 33) {
+        /* Es el Teclado (UART) */
+        uart_handle_irq();
+        /* No necesitamos llamar a schedule() obligatoriamente aquí, 
+           simplemente volvemos a lo que estábamos haciendo */
     }
 }
