@@ -31,6 +31,7 @@
 .global timer_set_tval
 .global timer_set_ctl
 .global set_vbar_el1
+.global system_off
 
 /* Escribir un valor de 32 bits en una direccion de memoria (MMIO) */
 put32:
@@ -61,3 +62,14 @@ timer_set_ctl:
 set_vbar_el1:
     msr vbar_el1, x0
     ret
+
+/* Función para apagar el sistema usando PSCI */
+system_off:
+    /* Cargamos el ID de la función SYSTEM_OFF de PSCI (0x84000008) */
+    ldr x0, =0x84000008
+    
+    /* SMC (Secure Monitor Call): Llamamos al firmware/hypervisor */
+    smc #0
+    
+    /* Si por alguna razón fallara, entramos en bucle infinito */
+    b hang

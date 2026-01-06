@@ -50,6 +50,7 @@ struct pcb {
     long prempt_count;
     int priority;
     unsigned long wake_up_time;
+    char name[16]; /* Nombre del proceso */
 };
 
 #endif // SCHED_H

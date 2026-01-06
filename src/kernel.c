@@ -72,6 +72,22 @@ extern void enable_interrupts(void);
 /* Punto de entrada para nuevos procesos (src/entry.S) */
 extern void ret_from_fork(void);
 
+extern void system_off(void);
+
+/* Función auxiliar simple para comparar cadenas */
+int k_strcmp(const char *s1, const char *s2) {
+    while (*s1 && (*s1 == *s2)) { s1++; s2++; }
+    return *(const unsigned char*)s1 - *(const unsigned char*)s2;
+}
+
+void k_strncpy(char *dst, const char *src, int max_len) {
+    int i;
+    for (i = 0; i < max_len - 1 && src[0] != '\0'; i++) {
+        dst[i] = src[i];
+    }
+    dst[i] = '\0';
+}
+
 /* ========================================================================== */
 /* TERMINACION DE PROCESOS                                                   */
 /* ========================================================================== */
@@ -100,7 +116,7 @@ void schedule_tail(void) {
 /* ========================================================================== */
 
 /* Crea un nuevo thread (hilo) del kernel */
-int create_thread(void (*fn)(void), int priority) {
+int create_thread(void (*fn)(void), int priority, const char *name) {
     if (num_process >= MAX_PROCESS) return -1;
     struct pcb *p = &process[num_process];
 
@@ -108,6 +124,9 @@ int create_thread(void (*fn)(void), int priority) {
     p->state = PROCESS_READY;
     p->prempt_count = 0;
     p->priority = priority;
+    p->wake_up_time = 0;
+
+    k_strncpy(p->name, name, 16);
 
     p->context.x19 = (unsigned long)fn; /* <--- Guardamos la funcion en x19 */
     p->context.pc = (unsigned long)ret_from_fork; /* <--- El PC apunta al wrapper */
@@ -197,11 +216,7 @@ void sleep(unsigned int ticks) {
     schedule();
 }
 
-/* Función auxiliar simple para comparar cadenas */
-int strcmp(const char *s1, const char *s2) {
-    while (*s1 && (*s1 == *s2)) { s1++; s2++; }
-    return *(const unsigned char*)s1 - *(const unsigned char*)s2;
-}
+
 
 /* --- LA TAREA SHELL --- */
 void shell_task() {
@@ -232,27 +247,42 @@ void shell_task() {
             command_buf[idx] = '\0'; // Terminador de string
 
             /* --- EJECUCIÓN DE COMANDOS --- */
-            if (strcmp(command_buf, "help") == 0) {
+            if (k_strcmp(command_buf, "help") == 0) {
                 kprintf("Comandos disponibles:\n");
                 kprintf("  help   - Muestra esta ayuda\n");
                 kprintf("  ps     - Lista los procesos (simulado)\n");
                 kprintf("  clear  - Limpia la pantalla\n");
                 kprintf("  panic  - Provoca un Kernel Panic\n");
+                kprintf("  poweroff - Apaga el sistema\n");
             } 
-            else if (strcmp(command_buf, "ps") == 0) {
-                kprintf("PID | Priority | State\n");
-                kprintf("----|----------|------\n");
+            else if (k_strcmp(command_buf, "ps") == 0) {
+                kprintf("\nPID | Priority  | State | Name\n");
+                kprintf("----|-----------|-------|------\n");
                 for(int i=0; i<num_process; i++) {
-                     kprintf(" %d  |    %d     |  %d\n", process[i].pid, process[i].priority, process[i].state);
+                     /* OJO: Si el proceso es ZOMBIE, lo indicamos */
+                     const char *estado = (process[i].state == 0) ? "RUN " : 
+                                          (process[i].state == 1) ? "RDY " : 
+                                          (process[i].state == 2) ? "BLK " : "ZOMB";
+                                          
+                     kprintf(" %d  |    %d     | %s  | %s\n", 
+                            process[i].pid, 
+                            process[i].priority, 
+                            estado,
+                            process[i].name); /* <--- Aquí imprimimos el nombre */
                 }
+                kprintf("\n");
             }
-            else if (strcmp(command_buf, "clear") == 0) {
+            else if (k_strcmp(command_buf, "clear") == 0) {
                 /* Código ANSI para limpiar terminal */
                 kprintf("\033[2J\033[H");
                 kprintf("BareMetalM4 Shell\n");
             }
-            else if (strcmp(command_buf, "panic") == 0) {
+            else if (k_strcmp(command_buf, "panic") == 0) {
                 panic("Usuario solicito panico");
+            }
+            else if(k_strcmp(command_buf, "poweroff") == 0) {
+                kprintf("Apagando el sistema... Hasta luego!\n");
+                system_off();
             }
             else if (idx > 0) {
                 kprintf("Comando desconocido: %s\n", command_buf);
@@ -308,11 +338,11 @@ void proceso_mortal() {
     enable_interrupts();
     
     for (int i = 0; i < 3; i++) {
-        kprintf("     [MORTAL] Vida restante: %d\n", 3 - i);
+        // kprintf("     [MORTAL] Vida restante: %d\n", 3 - i);
         sleep(15); /* Duerme un poco */
     }
 
-    kprintf("     [MORTAL] Adios mundo cruel...\n");
+    // kprintf("     [MORTAL] Adios mundo cruel...\n");
     /* AQUÍ OCURRE LA MAGIA:
        Al terminar el for, la función hace 'return'.
        El wrapper 'ret_from_fork' captura ese retorno y llama a 'exit()'. */
@@ -333,12 +363,13 @@ void kernel() {
     current_process->pid = 0;
     current_process->state = PROCESS_RUNNING;
     current_process->priority = 20;
+    k_strncpy(current_process->name, "Kernel", 16);
     num_process = 1;
 
-    create_thread(shell_task, 1);
+    create_thread(shell_task, 1, "Shell");
 
     // create_thread(proceso_1, 5);
-    // create_thread(proceso_mortal, 5);
+    create_thread(proceso_mortal, 5, "Proceso Mortal");
 
     timer_init();
 
