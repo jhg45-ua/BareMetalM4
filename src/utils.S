@@ -63,13 +63,24 @@ set_vbar_el1:
     msr vbar_el1, x0
     ret
 
-/* Función para apagar el sistema usando PSCI */
+/* Bloque de parámetros para Semihosting */
+/* Debe estar alineado a 8 bytes (64 bits) */
+.align 3 
+semihosting_param_block:
+    .quad 0x20026   /* ADP_Stopped_Application (Código mágico de salida limpia) */
+    .quad 0         /* Exit Code (0 = Éxito) */
+
+/* Función system_off usando Semihosting */
 system_off:
-    /* Cargamos el ID de la función SYSTEM_OFF de PSCI (0x84000008) */
-    ldr x0, =0x84000008
+    /* Operación 0x18 = SYS_EXIT */
+    mov x0, #0x18
     
-    /* SMC (Secure Monitor Call): Llamamos al firmware/hypervisor */
-    smc #0
+    /* Cargamos la dirección del bloque de parámetros en x1 */
+    ldr x1, =semihosting_param_block
     
-    /* Si por alguna razón fallara, entramos en bucle infinito */
+    /* Disparamos la interrupción de semihosting */
+    /* QEMU detectará esto y cerrará la ventana */
+    hlt #0xf000
+    
+    /* Si fallara (no debería), nos colgamos */
     b hang

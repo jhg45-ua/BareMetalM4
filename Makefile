@@ -63,7 +63,7 @@ $(BUILD_SUBDIRS): | $(BUILD_DIR)
 
 # Ejecutar en QEMU
 run: $(ELF)
-	@qemu-system-aarch64 -M virt -cpu cortex-a72 -nographic -kernel $(ELF)
+	@qemu-system-aarch64 -M virt -cpu cortex-a72 -nographic -semihosting -kernel $(ELF)
 
 # Limpiar archivos generados
 clean:
