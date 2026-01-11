@@ -11,6 +11,11 @@ Este proyecto demuestra cómo arrancar un procesador de 64 bits desde cero, gest
 *   **Compilación:** *Freestanding* (`-ffreestanding -nostdlib`), sin librerías estándar.
 *   **Bootloader:** Arranque en ensamblador (`boot.S`) con filtrado de núcleos (SMP awareness) y configuración de stack.
 *   **Driver UART:** Salida por consola serial simple mediante Memory Mapped I/O en la dirección física `0x09000000`.
+*   **Gestión de Memoria:**
+    *   **MMU (Memory Management Unit):** Sistema de memoria virtual con traducción de direcciones.
+    *   **Tablas de Páginas:** L1 con bloques de 1 GB (39 bits de espacio virtual).
+    *   **Identity Mapping:** Memoria física = virtual para simplificar acceso.
+    *   **Tipos de Memoria:** Device (periféricos) y Normal (RAM con caches).
 *   **Multitarea:**
     *   Modelo de **hilos del kernel** (Kernel Threads).
     *   **Planificador Expropiativo** con Aging que gestiona hasta 64 procesos (`MAX_PROCESS`).
@@ -33,7 +38,9 @@ Este proyecto demuestra cómo arrancar un procesador de 64 bits desde cero, gest
 | :--- | :--- |
 | **`src/boot.S`** | Punto de entrada (`_start`). Lee `MPIDR_EL1` para detener núcleos secundarios, configura el Stack Pointer (`sp`) y salta a C. |
 | **`src/entry.S`** | Implementa `cpu_switch_to` (cambio de contexto en procesos). Guarda/restaura registros *callee-saved* (`x19`-`x30`) y stack pointer. Incluye `irq_handler_stub` para manejo de interrupciones con preservación completa de contexto. |
-| **`src/kernel/kernel_main.c`** | Punto de entrada principal. Inicializa el sistema, scheduler con Aging, crea shell y procesos de prueba, habilita timer. |
+| **`src/mm.c`** | Subsistema de memoria virtual (MMU). Configura tablas de páginas L1, mapea periféricos y RAM, activa MMU y caches. |
+| **`src/mm_utils.S`** | Funciones de bajo nivel para MMU (mrs/msr). Acceso a registros `MAIR_EL1`, `TCR_EL1`, `TTBR0/1_EL1`, `SCTLR_EL1` e invalidación del TLB. |
+| **`src/kernel/kernel.c`** | Punto de entrada principal. Inicializa MMU, scheduler con Aging, crea shell y procesos de prueba, habilita timer. |
 | **`src/kernel/process.c`** | Gestión de procesos: PCB, `create_thread()`, `exit()`, variables globales (`process[]`, `current_process`, stacks). |
 | **`src/kernel/scheduler.c`** | Algoritmo de scheduling con aging y prioridades, `sleep()`, `timer_tick()`, gestión de `sys_timer_count`. |
 | **`src/shell/shell.c`** | Shell interactivo con comandos (help, ps, clear, panic, poweroff). Procesos de prueba (`proceso_1`, `proceso_2`, `proceso_mortal`). |
@@ -42,6 +49,7 @@ Este proyecto demuestra cómo arrancar un procesador de 64 bits desde cero, gest
 | **`src/timer.c`** | Inicialización del GIC v2, setup del timer virtual (`CNTP_TVAL_EL0`), y manejador `handle_timer_irq` para expropiación del scheduler. |
 | **`src/vectors.S`** | Tabla de vectores de excepciones (`VBAR_EL1`). Enruta IRQs, SysCalls, excepciones de sincronización, etc. |
 | **`src/utils.S`** | Funciones utilidad en ensamblador. Setup de registros del sistema (`VBAR_EL1`, `SPSEL`, etc.). |
+| **`include/mm.h`** | Interfaz del subsistema de memoria. Define funciones para configurar MMU y registros de sistema. |
 | **`include/kernel/`** | Headers de módulos: `kutils.h`, `process.h`, `scheduler.h`, `shell.h`. |
 | **`include/sched.h`** | Define estructura del PCB (`struct pcb`) con contexto de CPU (`struct cpu_context`) y estados de proceso. |
 | **`include/timer.h`** | Defines para el GIC v2 (registros y direcciones) y configuración del timer. |

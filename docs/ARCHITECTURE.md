@@ -5,13 +5,14 @@
 2. [Estructura del Código](#estructura-del-código)
 3. [Componentes Principales](#componentes-principales)
 4. [Flujo de Ejecución](#flujo-de-ejecución)
-5. [Subsistema de Planificación (Scheduler)](#subsistema-de-planificación)
-6. [Subsistema de Interrupciones](#subsistema-de-interrupciones)
-7. [Sincronización entre Procesos](#sincronización-entre-procesos)
-8. [Sistema de E/S](#sistema-de-es)
-9. [Estructura de Memoria](#estructura-de-memoria)
-10. [Decisiones de Diseño](#decisiones-de-diseño)
-11. [Limitaciones y Mejoras Futuras](#limitaciones-y-mejoras-futuras)
+5. [Subsistema de Memoria Virtual (MMU)](#subsistema-de-memoria-virtual-mmu)
+6. [Subsistema de Planificación (Scheduler)](#subsistema-de-planificación)
+7. [Subsistema de Interrupciones](#subsistema-de-interrupciones)
+8. [Sincronización entre Procesos](#sincronización-entre-procesos)
+9. [Sistema de E/S](#sistema-de-es)
+10. [Estructura de Memoria](#estructura-de-memoria)
+11. [Decisiones de Diseño](#decisiones-de-diseño)
+12. [Limitaciones y Mejoras Futuras](#limitaciones-y-mejoras-futuras)
 
 ---
 
@@ -23,7 +24,7 @@
 - ✅ **Planificación con prioridades y envejecimiento (aging)**
 - ✅ **Manejo de interrupciones y excepciones**
 - ✅ **Sincronización: spinlocks y semáforos**
-- ✅ **Gestor de memoria (MMU deshabilitado)**
+- ✅ **Gestión de memoria virtual (MMU)**
 - ✅ **I/O a través de UART QEMU**
 
 ### Plataforma Objetivo
@@ -43,6 +44,7 @@ El kernel está organizado en **módulos especializados** siguiendo el principio
 BareMetalM4/
 ├── include/
 │   ├── io.h              # Interfaz UART yprintf
+│   ├── mm.h              # Interfaz MMU y memoria virtual
 │   ├── sched.h           # Definiciones de PCB y estados
 │   ├── semaphore.h       # Primitivas de sincronización
 │   ├── timer.h           # Configuración GIC y timer
@@ -59,12 +61,14 @@ BareMetalM4/
 │   ├── vectors.S         # Tabla de excepciones (VBAR_EL1)
 │   ├── locks.S           # Spinlocks (LDXR/STXR)
 │   ├── utils.S           # Utilidades de sistema
+│   ├── mm.c              # Implementación MMU
+│   ├── mm_utils.S        # Funciones MMU en assembly
 │   ├── io.c              # Driver UART y kprintf
 │   ├── timer.c           # Inicialización GIC y timer
 │   ├── semaphore.c       # Implementación de semáforos
 │   │
 │   ├── kernel/           # Módulos del kernel
-│   │   ├── kernel_main.c #   Punto de entrada e inicialización
+│   │   ├── kernel.c      #   Punto de entrada e inicialización
 │   │   ├── process.c     #   Gestión de PCB y threads
 │   │   └── scheduler.c   #   Algoritmo de scheduling
 │   │
@@ -587,7 +591,14 @@ Ubicación: `src/io.c`, `include/io.h`
    │   └─ Salta a kernel() en kernel.c
    └─ (No retorna)
 
-3. kernel_main.c ejecuta:
+3. kernel.c ejecuta:
+   ├─ mem_init() - Inicializa MMU:
+   │   ├─ Crea tabla de páginas L1
+   │   ├─ Mapea periféricos (Device memory)
+   │   ├─ Mapea RAM del kernel (Normal memory)
+   │   ├─ Configura MAIR, TCR, TTBR0/1
+   │   ├─ Activa MMU y caches (SCTLR_EL1)
+   │   └─ Sistema ahora ejecuta en memoria virtual
    ├─ Inicializa Kernel como Proceso 0
    │   ├─ PID = 0, state = RUNNING
    │   ├─ priority = 20 (media-baja)
@@ -621,6 +632,187 @@ Ubicación: `src/io.c`, `include/io.h`
 
 5. Ciclo 4 se repite cada ~104ms
 ```
+
+---
+
+## Subsistema de Memoria Virtual (MMU)
+
+### Visión General
+
+El kernel implementa un **sistema de memoria virtual** usando la MMU (Memory Management Unit) de ARM64. Esto proporciona:
+
+- **Traducción de direcciones**: Virtual → Física
+- **Tipos de memoria**: Device (periféricos) y Normal (RAM con caches)
+- **Protección**: Separación lógica entre regiones de memoria
+- **Caches**: Aceleración de accesos a RAM
+
+### Arquitectura de la MMU ARM64
+
+```
+DIRECCION VIRTUAL (39 bits)
+│
+├─ Bits [38:30] → Índice L1 (512 entradas)
+│                 Cada entrada = 1 GB
+│
+└─ Con T0SZ=25:
+   - Espacio virtual: 2^39 = 512 GB
+   - Tabla L1 directa (sin L2/L3)
+   - Bloques de 1 GB (simplificado)
+
+REGISTROS CLAVE:
+├─ MAIR_EL1: Tipos de memoria (Device, Normal)
+├─ TCR_EL1: Configuración (T0SZ, granularidad)
+├─ TTBR0_EL1: Tabla de páginas (direcciones bajas)
+├─ TTBR1_EL1: Tabla de páginas (direcciones altas)
+└─ SCTLR_EL1: Control (MMU, I-Cache, D-Cache)
+```
+
+### Mapa de Memoria QEMU virt
+
+| Rango Físico | Tamaño | Tipo | Contenido |
+|--------------|--------|------|-----------|
+| `0x00000000 - 0x3FFFFFFF` | 1 GB | Device | UART (0x09000000), GIC (0x08000000) |
+| `0x40000000 - 0x7FFFFFFF` | 1 GB | Normal | Código kernel, stack, datos |
+
+**Identity Mapping**: Dirección virtual = Dirección física (simplifica acceso inicial)
+
+### Tabla de Páginas L1
+
+```c
+uint64_t page_table_l1[512] __attribute__((aligned(4096)));
+
+// Entrada 0: Periféricos (Device memory)
+page_table_l1[0] = 0x00000000 | MM_DEVICE;
+
+// Entrada 1: RAM del kernel (Normal memory)
+page_table_l1[1] = 0x40000000 | MM_NORMAL;
+```
+
+**Formato de descriptor de bloque**:
+```
+Bits [47:30] - Dirección física base (1 GB alineado)
+Bits [11:2]  - Atributos:
+  ├─ Bit 0: Válido (1)
+  ├─ Bit 1: Tipo (1 = bloque)
+  ├─ Bits [3:2]: Índice MAIR (tipo de memoria)
+  ├─ Bits [9:8]: Shareability (Inner Shareable)
+  └─ Bit 10: Access Flag (debe ser 1)
+```
+
+### Tipos de Memoria (MAIR_EL1)
+
+| Índice | Tipo | Valor | Uso |
+|--------|------|-------|-----|
+| 0 | Device nGnRnE | 0x00 | Periféricos (sin cache, sin reordenamiento) |
+| 1 | Normal sin cache | 0x44 | Memoria compartida CPU/DMA |
+| 2 | Normal con cache | 0xFF | RAM del kernel (máximo rendimiento) |
+
+**Device memory** garantiza:
+- Sin fusionar accesos (cada read/write es individual)
+- Sin reordenar operaciones (orden de programa)
+- Sin confirmación temprana de escrituras
+
+**Normal memory** permite:
+- Caching (I-Cache + D-Cache)
+- Reordenamiento de accesos por el hardware
+- Write buffers y prefetching
+
+### Proceso de Inicialización
+
+```
+mem_init() - Secuencia de activación:
+│
+├─ 1. Limpiar tabla L1 (512 entradas a 0)
+│
+├─ 2. Mapear memoria:
+│   ├─ Entrada 0: Periféricos (Device)
+│   └─ Entrada 1: RAM (Normal)
+│
+├─ 3. Configurar registros:
+│   ├─ MAIR_EL1 ← Tipos de memoria
+│   ├─ TCR_EL1 ← T0SZ=25 (39 bits), TG0=4KB
+│   └─ TTBR0/1_EL1 ← &page_table_l1
+│
+├─ 4. Activar MMU:
+│   ├─ SCTLR_EL1 |= (M | C | I)
+│   │   ├─ M: MMU Enable
+│   │   ├─ C: D-Cache Enable
+│   │   └─ I: I-Cache Enable
+│   │
+│   └─ tlb_invalidate_all()
+│       └─ Limpiar TLB (cache de traducciones)
+│
+└─ Sistema ahora ejecuta en memoria virtual
+```
+
+### Translation Lookaside Buffer (TLB)
+
+El **TLB** es una cache que almacena traducciones recientes:
+
+```
+ACCESO A MEMORIA:
+│
+├─ CPU genera dirección virtual
+│
+├─ 1. Buscar en TLB (hardware)
+│   ├─ HIT → Dirección física directa (rápido)
+│   └─ MISS → Caminar tabla de páginas (lento)
+│       └─ Guardar resultado en TLB
+│
+└─ Acceder memoria física
+```
+
+**Invalidación del TLB**:
+```asm
+tlb_invalidate_all:
+    dsb ish         ; Sincronizar escrituras a memoria
+    tlbi vmalle1is  ; Invalidar TLB (todos los cores)
+    dsb ish         ; Asegurar invalidación completa
+    isb             ; Sincronizar pipeline
+    ret
+```
+
+Se invalida cuando:
+- Se modifican tablas de páginas
+- Se activa/desactiva la MMU
+- Se cambia de contexto de memoria
+
+### Funciones de Bajo Nivel (Assembly)
+
+**Acceso a registros de sistema** (solo en Assembly):
+
+```asm
+// Leer registro
+get_sctlr_el1:
+    mrs x0, SCTLR_EL1  ; Move from System Register
+    ret
+
+// Escribir registro
+set_sctlr_el1:
+    msr SCTLR_EL1, x0  ; Move to System Register
+    ret
+```
+
+**Archivos**:
+- `src/mm.c` - Lógica de inicialización
+- `src/mm_utils.S` - Acceso a registros (mrs/msr)
+- `include/mm.h` - Interfaz pública
+
+### Ventajas del Sistema Actual
+
+| Ventaja | Descripción |
+|---------|-------------|
+| **Simplicidad** | Identity mapping (virtual = física) |
+| **Rendimiento** | Caches activos (I-Cache + D-Cache) |
+| **Protección básica** | Separación Device/Normal memory |
+| **Educativo** | Demuestra conceptos fundamentales de MMU |
+
+### Limitaciones
+
+- No hay protección entre procesos (todos comparten espacio)
+- No hay paginación dinámica (todo mapeado al inicio)
+- No hay swapping (sin disco)
+- Tabla L1 única (sin separación user/kernel)
 
 ---
 
