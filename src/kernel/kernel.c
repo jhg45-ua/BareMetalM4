@@ -17,6 +17,7 @@
 #include "../../include/kernel/scheduler.h"
 #include "../../include/kernel/shell.h"
 #include "../../include/kernel/kutils.h"
+#include "../../include/mm.h"
 
 /* ========================================================================== */
 /* FUNCIONES EXTERNAS                                                        */
@@ -24,6 +25,8 @@
 
 /* Inicializa el timer del sistema (src/timer.c) */
 extern void timer_init(void);
+
+extern unsigned long get_sctlr_el1(void);
 
 /* ========================================================================== */
 /* PUNTO DE ENTRADA DEL KERNEL                                              */
@@ -43,6 +46,10 @@ void kernel(void) {
     kprintf("¡¡¡Hola desde BareMetalM4!!!\n");
     kprintf("Sistema Operativo iniciando...\n");
     kprintf("Planificador por Prioridades\n");
+
+    unsigned long sctlr = get_sctlr_el1();
+    kprintf("Estado actual de SCTLR_EL1: 0x%x\n", sctlr);
+    mem_init();
 
     /* Inicializamos Kernel como Proceso 0 */
     current_process = &process[0];
