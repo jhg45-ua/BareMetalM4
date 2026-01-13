@@ -45,14 +45,22 @@
 #define TCR_T1SZ        (64 - 39)
 #define TCR_TG0_4K      (0UL << 14)  /* Granularidad 4 KB */
 #define TCR_TG1_4K      (2UL << 30)
-#define TCR_VALUE       (TCR_T0SZ | TCR_T1SZ | TCR_TG0_4K | TCR_TG1_4K)
+
+/* --- FLAGS CRÍTICOS PARA EVITAR HANGS --- */
+/* Inner Shareable (IS) y Write-Back (WB) Cacheable */
+/* Esto asegura que la MMU vea lo que la CPU escribe en la caché */
+#define TCR_SH_IS       (3UL << 12) | (3UL << 28)
+#define TCR_ORGN_WB     (1UL << 10) | (1UL << 26)
+#define TCR_IRGN_WB     (1UL << 8)  | (1UL << 24)
+
+#define TCR_VALUE       (TCR_T0SZ | TCR_T1SZ | TCR_TG0_4K | TCR_TG1_4K | \
+                         TCR_SH_IS | TCR_ORGN_WB | TCR_IRGN_WB)
 
 /* ========================================================================== */
 /* DESCRIPTORES DE TABLA                                                     */
 /* ========================================================================== */
 
-#define PT_TABLE     0x3        /* Entrada de tabla (apunta a siguiente nivel) */
-#define PT_BLOCK     0x1        /* Entrada de bloque (mapeo directo) */
+    #define PT_BLOCK     0x1        /* Entrada de bloque (mapeo directo) */
 #define PT_AF        (1UL<<10)  /* Access Flag */
 #define PT_ISH       (3UL<<8)   /* Inner Shareable */
 
@@ -87,7 +95,7 @@ uint64_t page_table_l1[512] __attribute__((aligned(4096)));
  * 4. Activar MMU y caches
  */
 void mem_init() {
-    kprintf("   [MMU] Inicializando Tablas (Bloques de 1GB)...\n");
+    kprintf("   [MMU] Inicializando Tablas (Coherencia Activada)...\n");
 
     /* ====================================================================== */
     /* 1. LIMPIAR TABLA                                                      */
@@ -122,7 +130,7 @@ void mem_init() {
     /* 4. ACTIVAR MMU Y CACHES                                               */
     /* ====================================================================== */
 
-    kprintf("   [MMU] Activando Traduccion y Caches...\n");
+    kprintf("   [MMU] Activando Traduccion...\n");
 
     unsigned long sctlr = get_sctlr_el1();
     sctlr |= 1;       /* M: MMU Enable */
@@ -132,5 +140,5 @@ void mem_init() {
     set_sctlr_el1(sctlr);
     tlb_invalidate_all();
 
-    kprintf("   [MMU] Sistema operativo vivo en memoria virtual.\n");
+    kprintf("   [MMU] Sistema estable y organizado.\n");
 }
