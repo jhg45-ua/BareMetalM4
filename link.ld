@@ -27,4 +27,7 @@ SECTIONS {
     . = . + 0x1000; /* 4KB */
     _stack_top = .;
   } :data
+
+  . = ALIGN(4096);  /* Alineamos a 4KB por seguridad de la MMU */
+  _end = .;         /* Este símbolo marca dónde empieza la memoria libre */
 }

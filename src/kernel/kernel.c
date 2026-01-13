@@ -26,6 +26,8 @@
 
 extern unsigned long get_sctlr_el1(void);
 
+extern char _end;
+
 /* ========================================================================== */
 /* PUNTO DE ENTRADA DEL KERNEL                                              */
 /* ========================================================================== */
@@ -48,6 +50,15 @@ void kernel(void) {
     unsigned long sctlr = get_sctlr_el1();
     kprintf("Estado actual de SCTLR_EL1: 0x%x\n", sctlr);
     mem_init();
+
+    /* --- DIAGNÓSTICO --- */
+    kprintf("   [KERNEL] Inicio (.text): 0x40000000\n");
+    
+    /* Usamos '&' porque queremos la DIRECCIÓN del símbolo, no su valor */
+    unsigned long heap_start = (unsigned long)&_end;
+    
+    kprintf("   [KERNEL] Fin del Kernel (_end): 0x%x\n", heap_start);
+    kprintf("   [INFO] Listo para implementar kmalloc() a partir de aqui.\n");
 
     /* Inicializamos Kernel como Proceso 0 */
     current_process = &process[0];
