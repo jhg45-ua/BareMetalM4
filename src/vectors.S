@@ -1,16 +1,18 @@
-/* 
- * src/vectors.S - Tabla de Vectores de Excepciones ARM64
+/**
+ * @file vectors.S
+ * @brief Tabla de vectores de excepciones ARM64
  * 
- * PROPOSITO:
+ * @details
  *   Define la tabla de vectores de excepciones (Exception Vector Table).
  *   Es una estructura de bajo nivel que el procesador ARM64 usa para saber
- *   a que direccion saltar cuando ocurre una excepcion (IRQ, SVC, etc).
+ *   a qué dirección saltar cuando ocurre una excepción (IRQ, SVC, etc).
  * 
- * CONCEPTO CLAVE:
- *   Cuando ocurre una interrupcion o excepcion:
+ * @section EXCEPTION_MECHANISM
+ *   CONCEPTO CLAVE:
+ *   Cuando ocurre una interrupción o excepción:
  *   1. El CPU salta a: VBAR_EL1 + offset
  *   2. VBAR_EL1 es establecido por set_vbar_el1() en utils.S
- *   3. El offset depende del tipo de excepcion y del nivel de privilegio
+ *   3. El offset depende del tipo de excepción y del nivel de privilegio
  * 
  * TABLA DE VECTORES ARM64 (16 entradas, 128 bytes cada una):
  * 
@@ -42,11 +44,16 @@
  *   │ +0x600-0x680: (4 entradas)                          │
  *   └─────────────────────────────────────────────────────┘
  * 
- * TIPOS DE EXCEPCIONES:
- *   - Synchronous: Excepciones sincronas (divisor por 0, acceso memoria invalido)
+ * 
+ * @section EXCEPTION_TYPES
+ *   TIPOS DE EXCEPCIONES:
+ *   - Synchronous: Excepciones síncronas (divisor por 0, acceso memoria inválido)
  *   - IRQ: Interrupt Request (timer, I/O devices)
  *   - FIQ: Fast Interrupt Request (no usamos en este kernel)
- *   - SError: System Error (errores criticos de hardware)
+ *   - SError: System Error (errores críticos de hardware)
+ * 
+ * @author Sistema Operativo Educativo BareMetalM4
+ * @version 0.3
  */
 
 .global vectors

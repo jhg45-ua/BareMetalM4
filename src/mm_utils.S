@@ -82,12 +82,29 @@ set_ttbr1_el1:
 /* SCTLR_EL1: SYSTEM CONTROL REGISTER                                       */
 /* ========================================================================== */
 
-/* Lee SCTLR_EL1 (control de MMU, caches, etc.) */
+/* 
+ * get_sctlr_el1 - Lee el registro de control del sistema
+ * 
+ * Retorna:
+ *   x0 = Valor de SCTLR_EL1
+ * 
+ * Bits importantes:
+ *   - Bit 0 (M): MMU Enable
+ *   - Bit 2 (C): Data Cache Enable
+ *   - Bit 12 (I): Instruction Cache Enable
+ */
 get_sctlr_el1:
     mrs x0, SCTLR_EL1
     ret
 
-/* Escribe SCTLR_EL1 (bit 0: MMU, bit 2: D-Cache, bit 12: I-Cache) */
+/* 
+ * set_sctlr_el1 - Escribe el registro de control del sistema
+ * 
+ * Parámetros:
+ *   x0 = Nuevo valor de SCTLR_EL1
+ * 
+ * Controla MMU, caches y otros parámetros del sistema.
+ */
 set_sctlr_el1:
     msr SCTLR_EL1, x0
     ret
@@ -96,16 +113,24 @@ set_sctlr_el1:
 /* TLB: TRANSLATION LOOKASIDE BUFFER                                         */
 /* ========================================================================== */
 
-/* Invalida todas las entradas del TLB
-   
-   El TLB cachea traducciones virtuales->fisicas.
-   Debe invalidarse tras modificar tablas de paginas.
-   
-   Secuencia:
-   1. dsb ish: Sincronizar escrituras a memoria
-   2. tlbi vmalle1is: Invalidar TLB en todos los cores
-   3. dsb ish: Asegurar invalidacion completa
-   4. isb: Sincronizar pipeline de instrucciones */
+/* 
+ * tlb_invalidate_all - Invalida todas las entradas del TLB
+ * 
+ * @details
+ *   El TLB (Translation Lookaside Buffer) cachea traducciones
+ *   virtuales->físicas para acelerar accesos a memoria.
+ *   
+ *   Debe invalidarse tras modificar tablas de páginas para
+ *   garantizar que la MMU vea los cambios.
+ * 
+ * Secuencia:
+ *   1. dsb ish: Sincronizar escrituras a memoria (Inner Shareable)
+ *   2. tlbi vmalle1is: Invalidar TLB en todos los cores (EL1)
+ *   3. dsb ish: Asegurar que invalidación se complete
+ *   4. isb: Sincronizar pipeline de instrucciones
+ * 
+ * Inner Shareable: Afecta a todos los cores del mismo cluster.
+ */
 tlb_invalidate_all:
     dsb ish         /* Data Sync Barrier - Inner Shareable */
     tlbi vmalle1is  /* TLB Invalidate All, EL1, Inner Shareable */

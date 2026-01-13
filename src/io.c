@@ -34,31 +34,56 @@ volatile unsigned int * const UART0_FR   = (unsigned int *)0x09000018; /* Flag R
 volatile unsigned int * const UART0_IMSC = (unsigned int *)0x09000038; /* Interrupt Mask Set/Clear */
 volatile unsigned int * const UART0_ICR  = (unsigned int *)0x09000044; /* Interrupt Clear Register */
 
-/* Escribe un caracter en la UART */
+/**
+ * @brief Escribe un carácter en la UART
+ * @param c Carácter a escribir
+ */
 void uart_putc(char c) { 
     *UART0_DIR = (unsigned int)c;
 }
 
-/* Escribe una cadena nula-terminada en la UART */
+/**
+ * @brief Escribe una cadena nula-terminada en la UART
+ * @param s Puntero a la cadena
+ */
 void uart_puts(const char *s) { 
     while (*s) uart_putc(*s++); 
 }
 
-/* --- Buffer Circular de teclado */
+/* ========================================================================== */
+/* BUFFER CIRCULAR DE TECLADO                                                */
+/* ========================================================================== */
+
 #define KB_BUFFER_SIZE 128
 
 volatile char kb_buffer[KB_BUFFER_SIZE];
-volatile int kb_head = 0; // Donde escribe la interrupcion
-volatile int kb_tail = 0; // Donde lee el Shell
+volatile int kb_head = 0; /* Donde escribe la interrupción */
+volatile int kb_tail = 0; /* Donde lee el Shell */
 
-/* --- Inicializar interrupciones UART --- */
+/* ========================================================================== */
+/* INTERRUPCIONES UART                                                       */
+/* ========================================================================== */
+
+/**
+ * @brief Inicializa las interrupciones UART
+ * 
+ * @details
+ *   Activa el bit RXIM (bit 4) en UART0_IMSC para generar
+ *   interrupciones cuando se reciban datos.
+ */
 void uart_irq_init() {
     /* Activamos el bit 4 (RXIM) para que interrumpa al recibir datos */
     *UART0_IMSC = (1 << 4);
 }
 
-/* --- Manejador de la interrupcion UART --- */
-/* Esta funcion la llamara el GIC cuando detecte ID 33 */
+/**
+ * @brief Manejador de la interrupción UART
+ * 
+ * @details
+ *   Esta función la llama el GIC cuando detecta ID 33 (UART RX).
+ *   Lee todos los caracteres disponibles en el FIFO de recepción
+ *   y los almacena en el buffer circular.
+ */
 void uart_handle_irq() {
     /* Bucle: Leemos mientras el bit 4 de Flags (RXFE - RX FIFO Empty) sea 0.
        Es decir: "Mientras NO esté vacío, lee". */
@@ -78,8 +103,15 @@ void uart_handle_irq() {
     *UART0_ICR = (1 << 4) | (1 << 6); 
 }
 
-/* --- Funcion para que el Shell lea una tecla */
-/* Devuelve 0 si no hay teclas, o el caracter si lo hay */
+/**
+ * @brief Lee un carácter del buffer del teclado sin bloqueo
+ * 
+ * @return Carácter leído, o 0 si el buffer está vacío
+ * 
+ * @details
+ *   Lee del buffer circular alimentado por uart_handle_irq().
+ *   No bloquea si no hay datos disponibles.
+ */
 char uart_getc_nonblocking() {
     if (kb_head == kb_tail) return 0; // Buffer vacio
 
@@ -88,7 +120,11 @@ char uart_getc_nonblocking() {
     return c;
 }
 
-/* Convierte un numero a cadena y lo imprime */
+/**
+ * @brief Convierte un número a cadena y lo imprime
+ * @param val Valor a imprimir
+ * @param base Base numérica (10=decimal, 16=hexadecimal)
+ */
 void print_num(long val, int base) {
     char buf[32];
     int i = 0;
@@ -124,7 +160,18 @@ void print_num(long val, int base) {
     }
 }
 
-/* Imprime con formato tipo printf (kernel printf) */
+/**
+ * @brief Imprime con formato tipo printf (kernel printf)
+ * @param fmt Cadena de formato
+ * @param ... Argumentos variables
+ * 
+ * @details
+ *   Soporta los siguientes especificadores:
+ *   - %c: char (carácter)
+ *   - %s: string (cadena)
+ *   - %d: int (entero decimal)
+ *   - %x: int (entero hexadecimal)
+ */
 void kprintf(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);

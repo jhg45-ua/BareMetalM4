@@ -1,17 +1,33 @@
-/* src/boot.S - Punto de Entrada del Kernel Bare-Metal */
-
-/*
- * FLUJO DE EJECUCCION:
+/**
+ * @file boot.S
+ * @brief Punto de entrada del kernel Bare-Metal ARM64
+ * 
+ * @details
+ *   FLUJO DE EJECUCCION:
  *   1. CPU enciende -> PC apunta a _start (definido en link.ld)
  *   2. Leemos MPIDR_EL1 para identificar el core
  *   3. Si NO somos core 0 -> loop infinito (WFE)
  *   4. Si SI somos core 0 -> configurar el stack y saltar a kernel()
+ * 
+ * @author Sistema Operativo Educativo BareMetalM4
+ * @version 0.3
  */
 
 .section .text
 .global _start
 .global hang
 
+/* 
+ * _start - Punto de entrada del kernel
+ * 
+ * Esta es la primera instrucción que ejecuta el CPU al arrancar.
+ * Filtra núcleos secundarios en sistemas SMP (solo core 0 continúa).
+ * 
+ * Secuencia:
+ *   1. Identificar el core ID mediante MPIDR_EL1
+ *   2. Core 0 configura stack y salta a kernel()
+ *   3. Cores secundarios entran en bucle WFE (wait-for-event)
+ */
 _start:
     /* PASO 1: Identificar el Core (solo core 0 ejecuta el kernel) */
     mrs x0, MPIDR_EL1       /* Leer ID del procesador */
@@ -28,6 +44,13 @@ master:
     bl kernel               /* Branch with Link a kernel() */
 
     /* PASO 4: Si kernel() retorna (ERROR) -> detener sistema */
+
+/* 
+ * hang - Bucle infinito para núcleos secundarios o errores fatales
+ * 
+ * Usa WFE (Wait For Event) para bajo consumo de energía.
+ * Los cores secundarios permanecen aquí indefinidamente.
+ */
 hang:
     wfe                     /* Wait For Event (bajo consumo) */
     b hang                  /* Loop infinito */

@@ -115,13 +115,18 @@ irq_handler_stub:
     eret
 
 /* 
- * ret_from_fork - Retorno desde fork hacia el nuevo proceso
+ * ret_from_fork - Punto de entrada para nuevos procesos
  * 
- * Parametros:
- *   x0 = puntero a la funcion del usuario (fn)
+ * @details
+ *   Esta función se ejecuta cuando un proceso recién creado
+ *   obtiene su primer quantum de CPU. Su trabajo es:
+ *   1. Llamar a schedule_tail() para tareas post-fork
+ *   2. Recuperar la función del usuario desde x19
+ *   3. Saltar a la función (ejecutar el proceso)
+ *   4. Si la función retorna, llamar a exit() automáticamente
  * 
- *  Configura el contexto inicial del nuevo proceso y salta a su
- *  funcion principal.
+ *   El registro x19 fue guardado por create_thread() con la
+ *   dirección de la función a ejecutar.
  */
 ret_from_fork:
     bl schedule_tail

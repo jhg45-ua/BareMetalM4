@@ -1,24 +1,38 @@
-/* 
- * src/locks.S - Primitivas de Sincronizacion Atomicas
+/**
+ * @file locks.S
+ * @brief Primitivas de sincronización atómicas (Assembly ARM64)
  * 
- * Implementa spinlocks usando instrucciones exclusivas ARM64 (LDXR/STXR)
- * para resolver race conditions en sistemas multitarea.
+ * @details
+ *   Implementa spinlocks usando instrucciones exclusivas ARM64 (LDXR/STXR)
+ *   para resolver race conditions en sistemas multitarea.
+ * 
+ *   Instrucciones exclusivas:
+ *   - LDXR: Load Exclusive Register (marca dirección como exclusiva)
+ *   - STXR: Store Exclusive Register (escribe solo si sigue exclusiva)
+ *   - DMB: Data Memory Barrier (sincronización de memoria)
+ * 
+ * @author Sistema Operativo Educativo BareMetalM4
+ * @version 0.3
  */
 
 .global spin_lock
 .global spin_unlock
 
 /* 
- * spin_lock - Adquiere un spinlock de forma atomica
+ * spin_lock - Adquiere un spinlock de forma atómica
  * 
- * Parametro: x0 = direccion del lock (0=libre, 1=tomado)
+ * Parámetros:
+ *   x0 = Dirección del lock (0=libre, 1=tomado)
  * 
- * Algoritmo:
- *   1. Leer lock (LDXR)
- *   2. Si tomado, volver a 1 (spin)
- *   3. Si libre, intentar escribir 1 (STXR)
- *   4. Si falla, volver a 1 (alguien se adelanto)
- *   5. Si exito, tenemos el lock
+ * Algoritmo (Test-and-Set atómico):
+ *   1. Leer lock (LDXR) marcando dirección como exclusiva
+ *   2. Si tomado (!=0), volver a 1 (spin/busy-wait)
+ *   3. Si libre (==0), intentar escribir 1 (STXR)
+ *   4. Si STXR falla (!=0), volver a 1 (otro CPU se adelantó)
+ *   5. Si STXR exitoso (==0), lock adquirido
+ *   6. Barrera DMB garantiza orden de memoria
+ * 
+ * Este es un spinlock con espera activa (consume CPU).
  */
 spin_lock:
     mov w1, #1
@@ -34,10 +48,12 @@ spin_lock:
 /* 
  * spin_unlock - Libera un spinlock
  * 
- * Parametro: x0 = direccion del lock
+ * Parámetros:
+ *   x0 = Dirección del lock
  * 
- * Garantiza que todas las operaciones de la seccion critica
- * se completen antes de liberar el lock.
+ * DMB (Data Memory Barrier) garantiza que todas las operaciones
+ * de la sección crítica se completen antes de liberar el lock.
+ * STLR (Store-Release) escribe 0 con semántica de "release".
  */
 spin_unlock:
     dmb sy             /* Completar operaciones previas */
