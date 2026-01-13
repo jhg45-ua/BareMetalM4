@@ -12,19 +12,17 @@
 
 #include "../../include/types.h"
 #include "../../include/sched.h"
-#include "../../include/io.h"
+#include "../../include/drivers/io.h"
+#include "../../include/drivers/timer.h"
 #include "../../include/kernel/process.h"
 #include "../../include/kernel/scheduler.h"
 #include "../../include/kernel/shell.h"
 #include "../../include/kernel/kutils.h"
-#include "../../include/mm.h"
+#include "../../include/mm/mm.h"
 
 /* ========================================================================== */
 /* FUNCIONES EXTERNAS                                                        */
 /* ========================================================================== */
-
-/* Inicializa el timer del sistema (src/timer.c) */
-extern void timer_init(void);
 
 extern unsigned long get_sctlr_el1(void);
 
@@ -61,10 +59,6 @@ void kernel(void) {
 
     /* Crear shell interactivo */
     create_thread(shell_task, 1, "Shell");
-
-    /* Crear procesos de prueba */
-    // create_thread(proceso_1, 5, "Proceso 1");
-    // create_thread(proceso_mortal, 5, "Proceso Mortal");
 
     /* Inicializar timer del sistema */
     timer_init();

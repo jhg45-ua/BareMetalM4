@@ -51,9 +51,9 @@
  * @see timer.h para interfaz publica
  */
 
-#include "../include/timer.h"
-#include "../include/io.h"
-#include "../include/types.h"
+#include "../../include/drivers/timer.h"
+#include "../../include/drivers/io.h"
+#include "../../include/types.h"
 
 /* Definimos GICD_ISENABLER para habilitar IDs */
 /* ID 0-31 están en ISENABLER0 (Offset 0x100) */

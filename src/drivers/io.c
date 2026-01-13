@@ -22,8 +22,8 @@
  */
 
 #include <stdarg.h>
-#include "../include/types.h"
-#include "../include/io.h"
+#include "../../include/types.h"
+#include "../../include/drivers/io.h"
 
 /* Registro base de la UART en QEMU virt (0x09000000) */
 volatile unsigned int * const UART0_DIR = (unsigned int *)0x09000000;

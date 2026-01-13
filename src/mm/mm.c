@@ -16,9 +16,9 @@
  * @version 0.3
  */
 
-#include "../include/mm.h"
-#include "../include/io.h"
-#include "../include/types.h"
+#include "../../include/mm/mm.h"
+#include "../../include/drivers/io.h"
+#include "../../include/types.h"
 
 /* ========================================================================== */
 /* CONSTANTES DE MEMORIA (MAIR_EL1)                                         */

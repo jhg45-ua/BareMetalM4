@@ -10,7 +10,7 @@
  */
 
 #include "../../include/kernel/kutils.h"
-#include "../../include/io.h"
+#include "../../include/drivers/io.h"
 
 /* ========================================================================== */
 /* HERRAMIENTAS BASE DEL KERNEL                                             */
