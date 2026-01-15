@@ -22,7 +22,6 @@
  */
 
 #include <stdarg.h>
-#include "../../include/types.h"
 #include "../../include/drivers/io.h"
 
 /* Registro base de la UART en QEMU virt (0x09000000) */

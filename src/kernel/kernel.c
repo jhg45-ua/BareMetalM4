@@ -1,5 +1,5 @@
 /**
- * @file kernel_main.c
+ * @file kernel.c
  * @brief Punto de entrada principal del kernel BareMetalM4
  * 
  * @details
@@ -10,15 +10,14 @@
  * @version 0.3
  */
 
-#include "../../include/types.h"
 #include "../../include/sched.h"
 #include "../../include/drivers/io.h"
 #include "../../include/drivers/timer.h"
 #include "../../include/kernel/process.h"
-#include "../../include/kernel/scheduler.h"
 #include "../../include/kernel/shell.h"
 #include "../../include/kernel/kutils.h"
 #include "../../include/mm/mm.h"
+#include "../../include/mm/malloc.h"
 
 /* ========================================================================== */
 /* FUNCIONES EXTERNAS                                                        */
@@ -65,11 +64,38 @@ void kernel(void) {
     current_process->pid = 0;
     current_process->state = PROCESS_RUNNING;
     current_process->priority = 20;
+    current_process->stack_addr = 0;
     k_strncpy(current_process->name, "Kernel", 16);
     num_process = 1;
 
+    /* 1. Calcular memoria disponible */
+    /* Vamos a darle 64 MB de Heap por ahora */
+    unsigned long heap_size = 64 * 1024 * 1024;
+
+    /* 2. Iniciar el Heap Manager */
+    kheap_init(heap_start, heap_start + heap_size);
+
+    /* 3. PRUEBA DE FUEGO: Pedir memoria dinámica */
+    kprintf("   [TEST] Probando kmalloc()...\n");
+
+    char *puntero1 = (char *)kmalloc(16);
+    k_strncpy(puntero1, "Hola Dinamico!", 16);
+
+    kprintf("   [TEST] ptr1 (16b): Dir 0x%x -> Contenido: '%s'\n", puntero1, puntero1);
+
+    int *array_numeros = (int *)kmalloc(4 * sizeof(int)); // Array de 4 enteros
+    array_numeros[0] = 1234;
+    array_numeros[3] = 9999;
+
+    kprintf("   [TEST] ptr2 (int*): Dir 0x%x -> Valor[0]: %d\n", array_numeros, array_numeros[0]);
+
+    kprintf("   [TEST] Liberando memoria...\n");
+    kfree(puntero1);
+    kfree(array_numeros);
+    /* ------------------------------------------- */
+
     /* Crear shell interactivo */
-    create_thread(shell_task, 1, "Shell");
+    create_process(shell_task, 1, "Shell");
 
     /* Inicializar timer del sistema */
     timer_init();

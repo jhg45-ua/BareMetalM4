@@ -9,8 +9,6 @@
 #ifndef SCHED_H
 #define SCHED_H
 
-#include "types.h"
-
 /* Estados de proceso */
 #define PROCESS_RUNNING 0
 #define PROCESS_READY 1
@@ -50,6 +48,7 @@ struct pcb {
     long prempt_count;
     int priority;
     unsigned long wake_up_time;
+    unsigned long stack_addr;
     char name[16]; /* Nombre del proceso */
 };
 

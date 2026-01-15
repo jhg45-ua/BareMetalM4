@@ -12,12 +12,12 @@
  * @version 0.3
  */
 
-#include "../../include/types.h"
 #include "../../include/sched.h"
 #include "../../include/drivers/io.h"
 #include "../../include/kernel/process.h"
 #include "../../include/kernel/scheduler.h"
 #include "../../include/kernel/kutils.h"
+#include "../../include/mm/malloc.h"
 
 /* ========================================================================== */
 /* GESTION DE PROCESOS - ESTRUCTURAS GLOBALES                               */
@@ -33,10 +33,10 @@ struct pcb *current_process;
 int num_process = 0;
 
 /* Stacks de ejecución para cada proceso (256KB total) */
-uint8_t process_stack[MAX_PROCESS][4096] __attribute__((aligned(16)));
+// uint8_t process_stack[MAX_PROCESS][4096] __attribute__((aligned(16)));
 
 /* ========================================================================== */
-/* FUNCIONES EXTERNAS (Ensamblador)                                         */
+/* FUNCIONES EXTERNAS (Ensamblador)                                           */
 /* ========================================================================== */
 
 /* Habilita las interrupciones IRQ en el procesador */
@@ -46,16 +46,61 @@ extern void enable_interrupts(void);
 extern void ret_from_fork(void);
 
 /* ========================================================================== */
-/* TERMINACION DE PROCESOS                                                   */
+/* CREACION DE PROCESOS                                                      */
 /* ========================================================================== */
 
 /**
- * @brief Termina el proceso actual y cede el CPU
+ * @brief Crea un nuevo thread (hilo) del kernel
+ * @param fn Función a ejecutar
+ * @param priority Prioridad inicial del proceso
+ * @param name Nombre descriptivo del proceso (máx. 15 chars)
+ * @return PID del proceso creado, -1 en caso de error
+ */
+long create_process(void (*fn)(void), int priority, const char *name) {
+    if (num_process >= MAX_PROCESS) return -1;
+    
+    struct pcb *p = &process[num_process];
+
+    /* 1. Asignacion Dinamica de la pila */
+    /* Pedimos 4KB (4096) al HEAP */
+    void *stack = kmalloc(4096);
+
+    if (!stack) return -1;
+
+    p->stack_addr = (unsigned long)stack;
+
+    /* 2. Configurar PCB */
+    p->pid = num_process;
+    p->state = PROCESS_READY;
+    p->prempt_count = 0;
+    p->priority = priority;
+    p->wake_up_time = 0;
+
+    k_strncpy(p->name, name, 16);
+
+    /* 3. Configurar Contexto */
+    /* Guardamos la función en x19 */
+    p->context.x19 = (unsigned long)fn;
+    /* El PC apunta al wrapper */
+    p->context.pc = (unsigned long)ret_from_fork;
+    /* La pila crece hacia abajo, apuntamos al final del bloque de 4KB */
+    p->context.sp = (unsigned long)stack + 4096;
+
+    num_process++;
+    return p->pid;
+}
+
+/* ========================================================================== */
+/* TERMINACION DE PROCESOS                                                    */
+/* ========================================================================== */
+
+/**
+ * @brief Termina el proceso actual y cede la CPU
  */
 void exit(void) {
     enable_interrupts();
 
-    kprintf("\n[KERNEL] Proceso %d (%d) ha terminado. Muriendo...\n", 
+    kprintf("\n[KERNEL] Proceso %d (%d) ha terminado. Muriendo...\n",
             current_process->pid, current_process->priority);
 
     /* Marcar como zombie (PCB persiste hasta implementar wait/reaper) */
@@ -70,39 +115,4 @@ void exit(void) {
  */
 void schedule_tail(void) {
     /* Placeholder para lógica post-context-switch */
-}
-
-/* ========================================================================== */
-/* CREACION DE PROCESOS                                                      */
-/* ========================================================================== */
-
-/**
- * @brief Crea un nuevo thread (hilo) del kernel
- * @param fn Función a ejecutar
- * @param priority Prioridad inicial del proceso
- * @param name Nombre descriptivo del proceso (máx 15 chars)
- * @return PID del proceso creado, -1 en caso de error
- */
-int create_thread(void (*fn)(void), int priority, const char *name) {
-    if (num_process >= MAX_PROCESS) return -1;
-    
-    struct pcb *p = &process[num_process];
-
-    p->pid = num_process;
-    p->state = PROCESS_READY;
-    p->prempt_count = 0;
-    p->priority = priority;
-    p->wake_up_time = 0;
-
-    k_strncpy(p->name, name, 16);
-
-    /* Guardamos la función en x19 */
-    p->context.x19 = (unsigned long)fn;
-    /* El PC apunta al wrapper */
-    p->context.pc = (unsigned long)ret_from_fork;
-    /* La pila crece hacia abajo, apuntamos al final del bloque de 4KB */
-    p->context.sp = (unsigned long)&process_stack[num_process][4096];
-
-    num_process++;
-    return p->pid;
 }

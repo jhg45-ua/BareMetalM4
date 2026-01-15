@@ -11,7 +11,6 @@
  * @version 0.3
  */
 
-#include "../../include/types.h"
 #include "../../include/sched.h"
 #include "../../include/drivers/io.h"
 #include "../../include/kernel/process.h"

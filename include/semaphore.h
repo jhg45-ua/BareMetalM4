@@ -16,7 +16,7 @@ struct semaphore {
 /* Inicializa semaforo con valor inicial */
 void sem_init(struct semaphore *s, int value);
 
-/* Espera a que recurso este disponible (Operacion P) */
+/* Espera a que recurso esté disponible (Operacion P) */
 void sem_wait(struct semaphore *s);
 
 /* Libera recurso y despierta proceso esperando (Operacion V) */

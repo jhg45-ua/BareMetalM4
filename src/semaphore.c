@@ -48,7 +48,6 @@
  */
 
 #include "../include/semaphore.h"
-#include "../include/sched.h"
 
 extern void spin_lock(volatile int *lock);
 extern void spin_unlock(volatile int *lock);
