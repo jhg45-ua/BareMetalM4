@@ -43,17 +43,20 @@ El kernel está organizado en **módulos especializados** siguiendo el principio
 ```
 BareMetalM4/
 ├── include/
-│   ├── io.h              # Interfaz UART yprintf
-│   ├── mm.h              # Interfaz MMU y memoria virtual
 │   ├── sched.h           # Definiciones de PCB y estados
 │   ├── semaphore.h       # Primitivas de sincronización
-│   ├── timer.h           # Configuración GIC y timer
 │   ├── types.h           # Tipos básicos del sistema
-│   └── kernel/           # Headers de módulos del kernel
-│       ├── kutils.h      #   Utilidades generales
-│       ├── process.h     #   Gestión de procesos
-│       ├── scheduler.h   #   Planificador
-│       └── shell.h       #   Shell y procesos de prueba
+│   ├── drivers/          # Headers de controladores
+│   │   ├── io.h          #   Interfaz UART y printf
+│   │   └── timer.h       #   Configuración GIC y timer
+│   ├── kernel/           # Headers de módulos del kernel
+│   │   ├── kutils.h      #   Utilidades generales
+│   │   ├── process.h     #   Gestión de procesos
+│   │   ├── scheduler.h   #   Planificador
+│   │   └── shell.h       #   Shell y procesos de prueba
+│   └── mm/               # Headers de gestión de memoria
+│       ├── malloc.h      #   Asignador dinámico (kmalloc/kfree)
+│       └── mm.h          #   Interfaz MMU y memoria virtual
 │
 ├── src/
 │   ├── boot.S            # Punto de entrada (ensamblador)
@@ -61,16 +64,21 @@ BareMetalM4/
 │   ├── vectors.S         # Tabla de excepciones (VBAR_EL1)
 │   ├── locks.S           # Spinlocks (LDXR/STXR)
 │   ├── utils.S           # Utilidades de sistema
-│   ├── mm.c              # Implementación MMU
 │   ├── mm_utils.S        # Funciones MMU en assembly
-│   ├── io.c              # Driver UART y kprintf
-│   ├── timer.c           # Inicialización GIC y timer
 │   ├── semaphore.c       # Implementación de semáforos
+│   │
+│   ├── drivers/          # Controladores hardware
+│   │   ├── io.c          #   Driver UART y kprintf
+│   │   └── timer.c       #   Inicialización GIC y timer
 │   │
 │   ├── kernel/           # Módulos del kernel
 │   │   ├── kernel.c      #   Punto de entrada e inicialización
 │   │   ├── process.c     #   Gestión de PCB y threads
 │   │   └── scheduler.c   #   Algoritmo de scheduling
+│   │
+│   ├── mm/               # Gestión de memoria
+│   │   ├── mm.c          #   Implementación MMU
+│   │   └── malloc.c      #   Asignador dinámico (kmalloc/kfree)
 │   │
 │   ├── shell/            # Interfaz de usuario
 │   │   └── shell.c       #   Shell interactivo y procesos demo
@@ -98,6 +106,22 @@ BareMetalM4/
 
 **Uso**: Funciones base utilizadas por todos los módulos del sistema.
 
+### Módulos del Kernel
+
+#### 1. **kutils** (Utilidades del Kernel)
+**Archivos**: `src/utils/kutils.c`, `include/kernel/kutils.h`
+
+**Responsabilidad**: Funciones de utilidad general del kernel
+
+| Función | Descripción |
+|---------|-------------|
+| `panic()` | Detiene el sistema con mensaje de error crítico |
+| `delay()` | Retardo activo (busy-wait) para timing preciso |
+| `k_strcmp()` | Comparación de cadenas (sin libc) |
+| `k_strncpy()` | Copia de cadenas con límite de longitud |
+
+**Uso**: Funciones base utilizadas por todos los módulos del sistema.
+
 ---
 
 #### 2. **process** (Gestión de Procesos)
@@ -107,7 +131,7 @@ BareMetalM4/
 
 | Componente | Descripción |
 |------------|-------------|
-| **Variables Globales** | `process[]`, `current_process`, `num_process`, `process_stack[]` |
+| **Variables Globales** | `process[]`, `current_process`, `num_process` |
 | `create_thread()` | Crea nuevos threads del kernel con prioridad y nombre |
 | `exit()` | Termina el proceso actual (estado → ZOMBIE) |
 | `schedule_tail()` | Hook post-context-switch (futuras extensiones) |
@@ -123,6 +147,8 @@ struct pcb {
     char name[16];               // Nombre descriptivo
 };
 ```
+
+**Nota**: En la versión actual, `create_thread()` utiliza `kmalloc()` para asignar dinámicamente las pilas de 4KB de cada proceso, en lugar de usar un array estático.
 
 ---
 
@@ -163,46 +189,138 @@ struct pcb {
 
 ---
 
-#### 5. **kernel_main** (Inicialización)
-**Archivo**: `src/kernel/kernel_main.c`
+#### 5. **drivers** (Controladores Hardware)
+
+##### 5.1 Driver UART (I/O)
+**Archivos**: `src/drivers/io.c`, `include/drivers/io.h`
+
+**Responsabilidad**: Comunicación serial y salida por consola
+
+| Función | Descripción |
+|---------|-------------|
+| `uart_init()` | Inicializa UART (placeholder, ya está listo en QEMU) |
+| `uart_putc()` | Escribe un carácter a la UART |
+| `uart_puts()` | Escribe una cadena |
+| `kprintf()` | Printf del kernel (formato: %s, %d, %x, %c) |
+
+**Dirección MMIO**: `0x09000000` (UART0 en QEMU virt)
+
+##### 5.2 Timer y GIC
+**Archivos**: `src/drivers/timer.c`, `include/drivers/timer.h`
+
+**Responsabilidad**: Configuración de interrupciones y timer del sistema
+
+| Función | Descripción |
+|---------|-------------|
+| `timer_init()` | Inicializa GIC v2 y timer del sistema |
+| `handle_timer_irq()` | Manejador de interrupciones del timer |
+| `enable_interrupts()` | Habilita IRQs en DAIF |
+| `disable_interrupts()` | Deshabilita IRQs en DAIF |
+
+**Componentes GIC v2**:
+- Distribuidor: `0x08000000` - Controla qué interrupciones están activas
+- CPU Interface: `0x08010000` - Interfaz de interrupción por CPU
+
+---
+
+#### 6. **mm** (Gestión de Memoria)
+
+##### 6.1 MMU (Memory Management Unit)
+**Archivos**: `src/mm/mm.c`, `include/mm/mm.h`
+
+**Responsabilidad**: Configuración de memoria virtual con MMU
+
+| Función | Descripción |
+|---------|-------------|
+| `mem_init()` | Inicializa MMU, tablas de páginas, y activa caches |
+| `map_page()` | Mapea una página virtual a física (L1) |
+
+**Características**:
+- Tablas de páginas L1 con bloques de 1 GB
+- Identity mapping (virtual = física)
+- Tipos de memoria: Device (periféricos) y Normal (RAM)
+- Activación de I-Cache y D-Cache
+
+##### 6.2 Asignador Dinámico (malloc)
+**Archivos**: `src/mm/malloc.c`, `include/mm/malloc.h`
+
+**Responsabilidad**: Asignación dinámica de memoria del kernel
+
+| Función | Descripción |
+|---------|-------------|
+| `kmalloc(size)` | Asigna memoria dinámica (similar a malloc) |
+| `kfree(ptr)` | Libera memoria previamente asignada |
+
+**Implementación**: Asignador de memoria simple con lista enlazada de bloques libres y ocupados. Utiliza estrategias de first-fit para encontrar bloques disponibles.
+
+**Características**:
+- Header de bloque con tamaño y estado (libre/ocupado)
+- Coalescing de bloques adyacentes libres
+- Gestión de heap desde dirección base configurable
+- Sin fragmentación externa gracias a coalescing
+
+**Uso**:
+```c
+// Asignar memoria
+char *buffer = (char *)kmalloc(256);
+
+// Usar memoria
+k_strncpy(buffer, "Hola mundo", 256);
+
+// Liberar memoria
+kfree(buffer);
+```
+
+---
+
+#### 7. **kernel_main** (Inicialización)
+**Archivo**: `src/kernel/kernel.c`
 
 **Responsabilidad**: Punto de entrada e inicialización del sistema
 
 ```c
 void kernel() {
-    // 1. Inicializar kernel como Proceso 0
+    // 1. Inicializar MMU
+    mem_init();
+    
+    // 2. Inicializar kernel como Proceso 0
     current_process = &process[0];
     current_process->pid = 0;
     current_process->state = PROCESS_RUNNING;
     
-    // 2. Crear shell y procesos de prueba
+    // 3. Probar asignador dinámico (kmalloc)
+    char *test = kmalloc(16);
+    kfree(test);
+    
+    // 4. Crear shell y procesos de prueba
     create_thread(shell_task, 1, "Shell");
     create_thread(proceso_mortal, 5, "Proceso Mortal");
     
-    // 3. Inicializar timer (GIC + interrupciones)
+    // 5. Inicializar timer (GIC + interrupciones)
     timer_init();
     
-    // 4. Loop principal (WFI)
+    // 6. Loop principal (WFI)
     while(1) {
         asm volatile("wfi");  // Wait For Interrupt
     }
 }
 ```
 
----
-
 ### Ventajas de la Arquitectura Modular
 
 | Ventaja | Descripción |
 |---------|-------------|
-| **Modularidad** | Cada módulo tiene responsabilidad única y bien definida |
+| **Separación de Responsabilidades** | Cada módulo tiene una función específica y bien definida |
+| **Organización por Subsistemas** | drivers/, mm/, kernel/, shell/ reflejan componentes del SO |
 | **Mantenibilidad** | Más fácil encontrar y modificar código específico |
 | **Reusabilidad** | Módulos pueden ser usados por otros componentes |
 | **Escalabilidad** | Agregar funcionalidades es más sencillo |
 | **Legibilidad** | Archivos pequeños, más fáciles de entender |
 | **Testabilidad** | Módulos pueden probarse de forma aislada |
 
-**Ejemplo**: Para modificar el algoritmo de scheduling, solo se edita `scheduler.c` sin tocar código de procesos, shell o utilidades.
+**Ejemplo**: Para modificar el algoritmo de scheduling, solo se edita [scheduler.c](../src/kernel/scheduler.c) sin tocar código de procesos, shell, drivers o utilidades.
+
+**Refactorización v0.3**: El código originalmente monolítico fue reorganizado en módulos especializados en enero de 2026, mejorando significativamente la estructura del proyecto.
 
 ---
 
@@ -224,7 +342,9 @@ void kernel() {
            │
            ▼
 ┌─────────────────────────────┐
-│  kernel() [kernel_main.c]   │
+│  kernel() [kernel.c]        │
+│  - Inicializa MMU           │
+│  - Prueba kmalloc/kfree     │
 │  - Inicializa scheduler     │
 │  - Crea procesos            │
 │  - timer_init()             │
@@ -249,11 +369,15 @@ El kernel está dividido en módulos especializados (ver [Estructura del Código
 
 | Módulo | Archivo | Responsabilidad |
 |--------|---------|----------------|
-| **Inicialización** | `kernel_main.c` | Punto de entrada, setup del sistema |
-| **Gestión de Procesos** | `process.c` | PCB, create_thread, exit |
-| **Planificador** | `scheduler.c` | Algoritmo de aging, sleep, timer_tick |
-| **Shell** | `shell.c` | Interfaz de comandos, procesos demo |
-| **Utilidades** | `kutils.c` | panic, delay, strcmp, strncpy |
+| **Inicialización** | `kernel/kernel.c` | Punto de entrada, setup del sistema |
+| **Gestión de Procesos** | `kernel/process.c` | PCB, create_thread, exit |
+| **Planificador** | `kernel/scheduler.c` | Algoritmo de aging, sleep, timer_tick |
+| **Shell** | `shell/shell.c` | Interfaz de comandos, procesos demo |
+| **Utilidades** | `utils/kutils.c` | panic, delay, strcmp, strncpy |
+| **Driver UART** | `drivers/io.c` | Comunicación serial, kprintf |
+| **Timer/GIC** | `drivers/timer.c` | Interrupciones, timer del sistema |
+| **MMU** | `mm/mm.c` | Memoria virtual, tablas de páginas |
+| **Asignador** | `mm/malloc.c` | kmalloc, kfree, gestión de heap |
 
 **Estructura de PCB**:
 ```c
@@ -273,8 +397,9 @@ struct pcb {
 struct pcb process[MAX_PROCESS];              // Array de 64 PCBs
 struct pcb *current_process;                  // Proceso en ejecución
 int num_process;                              // Contador de procesos
-uint8_t process_stack[MAX_PROCESS][4096];    // Stacks (256KB total)
 ```
+
+**Nota**: Las pilas de procesos ahora se asignan dinámicamente con `kmalloc()` en lugar de usar un array estático.
 
 ---
 
@@ -599,14 +724,20 @@ Ubicación: `src/io.c`, `include/io.h`
    │   ├─ Configura MAIR, TCR, TTBR0/1
    │   ├─ Activa MMU y caches (SCTLR_EL1)
    │   └─ Sistema ahora ejecuta en memoria virtual
+   ├─ Inicializa asignador dinámico (kmalloc/kfree)
+   │   ├─ Configura heap base
+   │   └─ Inicializa lista de bloques libres
    ├─ Inicializa Kernel como Proceso 0
    │   ├─ PID = 0, state = RUNNING
    │   ├─ priority = 20 (media-baja)
    │   └─ name = "Kernel"
+   ├─ Prueba sistema de memoria dinámica
+   │   ├─ kmalloc() de buffers de prueba
+   │   └─ kfree() para validar funcionamiento
    ├─ Crea procesos:
    │   ├─ shell_task (prioridad 1) - Shell interactivo
    │   └─ proceso_mortal (prioridad 5) - Demo
-   │   └─ Cada uno con stack de 4 KB
+   │   └─ Cada uno con stack de 4 KB (asignado con kmalloc)
    │   └─ cpu_context con x30 = dirección de función
    ├─ timer_init() configura:
    │   ├─ Tabla de excepciones (VBAR_EL1)
@@ -645,6 +776,7 @@ El kernel implementa un **sistema de memoria virtual** usando la MMU (Memory Man
 - **Tipos de memoria**: Device (periféricos) y Normal (RAM con caches)
 - **Protección**: Separación lógica entre regiones de memoria
 - **Caches**: Aceleración de accesos a RAM
+- **Asignación dinámica**: Sistema de `kmalloc`/`kfree` para gestión del heap
 
 ### Arquitectura de la MMU ARM64
 
@@ -794,9 +926,11 @@ set_sctlr_el1:
 ```
 
 **Archivos**:
-- `src/mm.c` - Lógica de inicialización
+- `src/mm/mm.c` - Lógica de inicialización MMU
+- `src/mm/malloc.c` - Asignador dinámico (kmalloc/kfree)
 - `src/mm_utils.S` - Acceso a registros (mrs/msr)
-- `include/mm.h` - Interfaz pública
+- `include/mm/mm.h` - Interfaz pública MMU
+- `include/mm/malloc.h` - Interfaz pública asignador
 
 ### Ventajas del Sistema Actual
 
@@ -805,9 +939,118 @@ set_sctlr_el1:
 | **Simplicidad** | Identity mapping (virtual = física) |
 | **Rendimiento** | Caches activos (I-Cache + D-Cache) |
 | **Protección básica** | Separación Device/Normal memory |
+| **Asignación dinámica** | kmalloc/kfree para gestión eficiente del heap |
 | **Educativo** | Demuestra conceptos fundamentales de MMU |
 
-### Limitaciones
+### Asignador Dinámico de Memoria (kmalloc/kfree)
+
+El kernel incluye un **asignador de memoria dinámico** que permite la asignación y liberación de memoria en tiempo de ejecución.
+
+#### Estructura de Bloques
+
+Cada bloque de memoria tiene un header que contiene metadatos:
+
+```c
+struct block_header {
+    uint32_t size;      // Tamaño del bloque (sin incluir header)
+    uint32_t is_free;   // 1 = libre, 0 = ocupado
+    struct block_header *next;  // Siguiente bloque en la lista
+};
+```
+
+#### Algoritmo de Asignación
+
+**kmalloc(size)**:
+1. Busca en la lista de bloques un bloque libre con tamaño suficiente (first-fit)
+2. Si encuentra uno:
+   - Marca el bloque como ocupado
+   - Si el bloque es mucho más grande, lo divide (split)
+3. Si no encuentra:
+   - Expande el heap creando un nuevo bloque
+4. Retorna puntero al área de datos (después del header)
+
+**kfree(ptr)**:
+1. Obtiene el header del bloque desde el puntero
+2. Marca el bloque como libre
+3. Intenta fusionar (coalesce) con bloques adyacentes libres
+4. Reduce fragmentación externa
+
+#### Características
+
+| Característica | Descripción |
+|----------------|-------------|
+| **Estrategia** | First-fit (primer bloque libre que cabe) |
+| **Coalescing** | Fusión de bloques adyacentes libres |
+| **Split** | División de bloques grandes cuando es posible |
+| **Lista enlazada** | Gestión simple de bloques libres y ocupados |
+| **Alineación** | Bloques alineados a 16 bytes para rendimiento |
+
+#### Ejemplo de Uso
+
+```c
+// Asignar memoria para un buffer
+char *buffer = (char *)kmalloc(256);
+if (buffer) {
+    k_strncpy(buffer, "Hola mundo", 256);
+    kprintf("Buffer: %s\n", buffer);
+    kfree(buffer);  // Liberar cuando ya no se necesite
+}
+
+// Asignar memoria para un array
+int *numeros = (int *)kmalloc(10 * sizeof(int));
+if (numeros) {
+    for (int i = 0; i < 10; i++) {
+        numeros[i] = i * 2;
+    }
+    kfree(numeros);
+}
+
+// Asignar pila de proceso (usado internamente por create_thread)
+void *stack = kmalloc(4096);  // 4KB de pila
+```
+
+#### Mapa de Memoria con Heap
+
+```
+┌────────────────────────────────────────┐
+│ 0xFFFF_FFFF (64-bit)                   │
+├────────────────────────────────────────┤
+│ Kernel code/data                       │
+│ (nuestro binario)                      │
+├────────────────────────────────────────┤
+│ Stack (crece hacia abajo)              │
+│ _stack_top (definido en link.ld)       │
+├────────────────────────────────────────┤
+│ HEAP (asignación dinámica)             │
+│ ├─ Bloques kmalloc                     │
+│ ├─ Pilas de procesos                   │
+│ └─ Crece hacia arriba                  │
+├────────────────────────────────────────┤
+│ MMIO (Memory-Mapped I/O)               │
+│ ├─ UART0: 0x09000000                  │
+│ ├─ GIC Distribuidor: 0x08000000       │
+│ └─ GIC CPU Intf: 0x08010000           │
+├────────────────────────────────────────┤
+│ 0x00000000                             │
+└────────────────────────────────────────┘
+```
+
+#### Ventajas del Sistema
+
+- **Flexibilidad**: Asignación dinámica según necesidades
+- **Eficiencia**: Reutilización de bloques liberados
+- **Anti-fragmentación**: Coalescing reduce fragmentación externa
+- **Simple**: Implementación educativa, fácil de entender
+- **Determinista**: Sin llamadas al sistema, control total
+
+#### Limitaciones
+
+- **First-fit**: No es la estrategia más eficiente (best-fit sería mejor)
+- **Sin compactación**: Fragmentación interna puede persistir
+- **Sin protección**: Todos los procesos comparten el mismo heap
+- **Sin estadísticas**: No hay tracking de memoria usada/libre
+
+### Limitaciones del Subsistema de Memoria
 
 - No hay protección entre procesos (todos comparten espacio)
 - No hay paginación dinámica (todo mapeado al inicio)
@@ -1034,23 +1277,35 @@ void proceso_1() {
 
 ## Limitaciones y Mejoras Futuras
 
+### ✅ Características Implementadas (v0.3)
+- [x] Arquitectura modular con separación de subsistemas
+- [x] Asignación dinámica de memoria (kmalloc/kfree)
+- [x] Planificador expropiativo con aging
+- [x] Shell interactivo con múltiples comandos
+- [x] MMU con memoria virtual
+- [x] Interrupciones de timer con GIC v2
+- [x] Sincronización con spinlocks y semáforos
+
 ### Fase 1: Mejoras Educativas (Siguientes)
 - [ ] Agregar syscalls (SVC exception)
 - [ ] Implementar wait queues en semáforos
 - [ ] Soporte para múltiples CPUs (spinlocks existentes)
-- [ ] Keyboard input vía UART
+- [ ] Keyboard input vía UART (lectura)
+- [ ] Mejorar asignador (best-fit, estadísticas)
 
 ### Fase 2: Características Reales
-- [ ] Memory management (malloc/free)
-- [ ] Virtual memory (paging)
+- [ ] Memory management avanzado (protección por proceso)
+- [ ] Virtual memory con paginación dinámica
 - [ ] Filesystem (FAT o ext2)
-- [ ] Networking (if applicable)
+- [ ] Procesos de usuario (EL0)
+- [ ] System calls completos
 
 ### Fase 3: Optimizaciones
 - [ ] Timer events (en lugar de polling)
-- [ ] IPC avanzado (message passing)
+- [ ] IPC avanzado (message passing, pipes)
 - [ ] Condition variables
 - [ ] RCU (Read-Copy-Update)
+- [ ] Multicore scheduling
 
 ---
 
@@ -1104,26 +1359,37 @@ void proceso_1() {
 
 ---
 
-**Última actualización**: Enero 6, 2026  
+**Última actualización**: Enero 15, 2026  
 **Versión**: 0.3  
-**Refactorización**: Estructura modular implementada (Enero 2026)
+**Refactorización**: Estructura modular y sistema de memoria dinámica implementados (Enero 2026)
 
 ---
 
 ## Historial de Cambios
 
 ### v0.3 - Enero 2026
-- ✅ Refactorización completa del kernel en módulos especializados
-- ✅ Separación de responsabilidades: process, scheduler, shell, kutils
-- ✅ Headers organizados en `include/kernel/`
-- ✅ Shell interactivo con comandos (help, ps, clear, panic, poweroff)
-- ✅ Nombres descriptivos para procesos (campo `name` en PCB)
-- ✅ Mejora en mantenibilidad y escalabilidad del código
+- ✅ **Refactorización completa del kernel en módulos especializados**
+  - Separación de responsabilidades: process, scheduler, shell, kutils
+  - Organización por subsistemas: drivers/, mm/, kernel/
+  - Headers organizados en `include/kernel/`, `include/drivers/`, `include/mm/`
+- ✅ **Sistema de asignación dinámica de memoria**
+  - Implementación de `kmalloc()` y `kfree()`
+  - Asignador con lista enlazada de bloques
+  - Coalescing de bloques libres adyacentes
+  - Pilas de procesos ahora asignadas dinámicamente
+- ✅ **Shell interactivo mejorado**
+  - Comandos: help, ps, clear, panic, poweroff
+  - Nombres descriptivos para procesos (campo `name` en PCB)
+- ✅ **Mejoras en mantenibilidad y escalabilidad del código**
+  - Mejor organización de directorios
+  - Documentación actualizada
+  - Código más modular y reutilizable
 
 ### v0.2 - 2025
 - Implementación de sleep() con wake_up_time
 - Sistema de semáforos con spinlocks
 - Planificador con aging para prevenir starvation
+- MMU con tablas de páginas y memoria virtual
 
 ### v0.1 - 2025
 - Boot en ARM64 con soporte multicore
