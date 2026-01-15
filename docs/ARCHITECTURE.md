@@ -132,7 +132,7 @@ BareMetalM4/
 | Componente | Descripción |
 |------------|-------------|
 | **Variables Globales** | `process[]`, `current_process`, `num_process` |
-| `create_thread()` | Crea nuevos threads del kernel con prioridad y nombre |
+| `create_process()` | Crea nuevos threads del kernel con prioridad y nombre |
 | `exit()` | Termina el proceso actual (estado → ZOMBIE) |
 | `schedule_tail()` | Hook post-context-switch (futuras extensiones) |
 
@@ -148,7 +148,7 @@ struct pcb {
 };
 ```
 
-**Nota**: En la versión actual, `create_thread()` utiliza `kmalloc()` para asignar dinámicamente las pilas de 4KB de cada proceso, en lugar de usar un array estático.
+**Nota**: En la versión actual, `create_process()` utiliza `kmalloc()` para asignar dinámicamente las pilas de 4KB de cada proceso, en lugar de usar un array estático.
 
 ---
 
@@ -293,8 +293,8 @@ void kernel() {
     kfree(test);
     
     // 4. Crear shell y procesos de prueba
-    create_thread(shell_task, 1, "Shell");
-    create_thread(proceso_mortal, 5, "Proceso Mortal");
+    create_process(shell_task, 1, "Shell");
+    create_process(proceso_mortal, 5, "Proceso Mortal");
     
     // 5. Inicializar timer (GIC + interrupciones)
     timer_init();
@@ -370,7 +370,7 @@ El kernel está dividido en módulos especializados (ver [Estructura del Código
 | Módulo | Archivo | Responsabilidad |
 |--------|---------|----------------|
 | **Inicialización** | `kernel/kernel.c` | Punto de entrada, setup del sistema |
-| **Gestión de Procesos** | `kernel/process.c` | PCB, create_thread, exit |
+| **Gestión de Procesos** | `kernel/process.c` | PCB, create_process, exit |
 | **Planificador** | `kernel/scheduler.c` | Algoritmo de aging, sleep, timer_tick |
 | **Shell** | `shell/shell.c` | Interfaz de comandos, procesos demo |
 | **Utilidades** | `utils/kutils.c` | panic, delay, strcmp, strncpy |
@@ -1005,7 +1005,7 @@ if (numeros) {
     kfree(numeros);
 }
 
-// Asignar pila de proceso (usado internamente por create_thread)
+// Asignar pila de proceso (usado internamente por create_process)
 void *stack = kmalloc(4096);  // 4KB de pila
 ```
 
