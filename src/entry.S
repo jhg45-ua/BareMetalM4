@@ -1,4 +1,21 @@
-/* src/entry.S - Context Switching y Manejo de Interrupciones */
+/**
+ * @file entry.S
+ * @brief Context switch y manejo de interrupciones (ARM64)
+ *
+ * @details
+ *   Rutinas críticas en ensamblador:
+ *   - Cambio de contexto entre procesos (cpu_switch_to)
+ *   - Habilitar IRQs (enable_interrupts)
+ *   - Stub de interrupciones IRQ (irq_handler_stub)
+ *   - Entrada de procesos recién creados (ret_from_fork)
+ *
+ *   Guarda y restaura contexto completo, incluyendo registros
+ *   callee-saved y estado de excepción (ELR, SPSR) para permitir
+ *   preemptive multitasking.
+ *
+ * @author Sistema Operativo Educativo BareMetalM4
+ * @version 0.3
+ */
 
 .global cpu_switch_to
 .global irq_handler_stub
@@ -6,15 +23,14 @@
 .global ret_from_fork
 .global exit
 
-/* 
+/**
  * cpu_switch_to - Cambio de contexto entre procesos
- * 
- * Parametros:
- *   x0 = puntero al proceso saliente (prev)
- *   x1 = puntero al proceso entrante (next)
- * 
- * Guarda registros callee-saved (x19-x30, SP) de 'prev' en su PCB
- * y restaura los de 'next' desde su PCB.
+ *
+ * @param x0 Puntero al PCB del proceso saliente (prev)
+ * @param x1 Puntero al PCB del proceso entrante (next)
+ *
+ * Guarda registros callee-saved (x19-x30, SP) de 'prev' y restaura
+ * los de 'next'.
  */
 cpu_switch_to:
     /* Guardar contexto de 'prev' */
@@ -39,21 +55,21 @@ cpu_switch_to:
 
     ret    /* Saltar a la direccion en x30 (LR de 'next') */
 
-/* 
+/**
  * enable_interrupts - Habilita interrupciones IRQ
- * 
+ *
  * Limpia el bit I del registro DAIF para permitir IRQs.
  */
 enable_interrupts:
     msr daifclr, #2    /* Limpiar bit IRQ (bit 1) */
     ret
 
-/* 
+/**
  * irq_handler_stub - Punto de entrada para interrupciones IRQ
- * 
- * Guarda TODO el contexto del proceso interrumpido (x0-x30, ELR, SPSR),
- * llama a handle_timer_irq() en C, y restaura el contexto (posiblemente
- * de otro proceso si schedule() hizo cambio de contexto).
+ *
+ * Guarda todo el contexto (x0-x30, ELR, SPSR), llama a handle_timer_irq()
+ * en C y restaura el contexto (posiblemente de otro proceso si schedule()
+ * realizó cambio de contexto).
  */
 irq_handler_stub:
     /* Reservar espacio en stack (256 bytes) */
@@ -114,19 +130,15 @@ irq_handler_stub:
     /* Retornar de la excepcion */
     eret
 
-/* 
+/**
  * ret_from_fork - Punto de entrada para nuevos procesos
- * 
+ *
  * @details
- *   Esta función se ejecuta cuando un proceso recién creado
- *   obtiene su primer quantum de CPU. Su trabajo es:
- *   1. Llamar a schedule_tail() para tareas post-fork
- *   2. Recuperar la función del usuario desde x19
- *   3. Saltar a la función (ejecutar el proceso)
- *   4. Si la función retorna, llamar a exit() automáticamente
- * 
- *   El registro x19 fue guardado por create_thread() con la
- *   dirección de la función a ejecutar.
+ *   Se ejecuta cuando un proceso recién creado obtiene CPU:
+ *   1) Llama a schedule_tail() (hook post-fork)
+ *   2) Recupera la función del usuario desde x19
+ *   3) Salta a la función del proceso
+ *   4) Si retorna, invoca exit() automáticamente
  */
 ret_from_fork:
     bl schedule_tail

@@ -48,7 +48,7 @@ struct pcb {
     long prempt_count;
     int priority;
     unsigned long wake_up_time;
-    unsigned long stack_addr;
+    unsigned long stack_addr; /* Dirección base de la pila asignada */
     char name[16]; /* Nombre del proceso */
 };
 

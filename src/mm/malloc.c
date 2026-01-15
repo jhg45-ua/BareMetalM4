@@ -1,3 +1,16 @@
+/**
+ * @file malloc.c
+ * @brief Gestor de heap sencillo (First Fit)
+ *
+ * @details
+ *   Implementa un asignador dinámico minimalista para el kernel:
+ *   - Lista enlazada simple de bloques (first-fit)
+ *   - Alineación a 16 bytes (ARM64)
+ *   - Sin coalescencia (pendiente de mejora)
+ *
+ *   Diseñado para fines educativos: código claro y corto.
+ */
+
 #include "../../include/mm/malloc.h"
 #include "../../include/drivers/io.h"
 
@@ -14,7 +27,14 @@ struct block_header {
 // Inicio de la lista
 static struct block_header *head = nullptr;
 
-// Inicializar al Heap
+/**
+ * @brief Inicializa el heap del kernel
+ * @param start_addr Dirección inicial del heap
+ * @param end_addr   Dirección final (exclusiva) del heap
+ *
+ * Alinea el inicio a 16 bytes y crea un bloque libre único
+ * que cubre todo el rango disponible.
+ */
 void kheap_init(unsigned long start_addr, unsigned long end_addr) {
     // Ajustamos el inicio para que esté alineado a 16 bytes
     if (start_addr % 16 != 0) {
@@ -32,6 +52,11 @@ void kheap_init(unsigned long start_addr, unsigned long end_addr) {
     kprintf("   [HEAD] Iniciando en 0x%x. Tamaño inicial: %d bytes\n", start_addr, head->size);
 }
 
+/**
+ * @brief Reserva memoria del heap (first-fit)
+ * @param size Tamaño solicitado en bytes
+ * @return Puntero a la región asignada o nullptr si no hay espacio
+ */
 void *kmalloc(uint32_t size) {
     struct block_header *curr = head;
 
@@ -76,6 +101,12 @@ void *kmalloc(uint32_t size) {
     return nullptr; // NULL
 }
 
+/**
+ * @brief Libera un bloque previamente asignado
+ * @param ptr Puntero devuelto por kmalloc
+ *
+ * Marca el bloque como libre. No realiza coalescencia aún.
+ */
 void kfree(void *ptr) {
     if (!ptr) return;
 
