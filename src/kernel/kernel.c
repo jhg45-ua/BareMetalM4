@@ -10,22 +10,16 @@
  * @version 0.3
  */
 
-#include "../../include/sched.h"
 #include "../../include/drivers/io.h"
 #include "../../include/drivers/timer.h"
 #include "../../include/kernel/process.h"
 #include "../../include/kernel/shell.h"
-#include "../../include/kernel/kutils.h"
 #include "../../include/mm/mm.h"
-#include "../../include/mm/malloc.h"
+#include "../../include/tests.h"
 
 /* ========================================================================== */
 /* FUNCIONES EXTERNAS                                                        */
 /* ========================================================================== */
-
-extern unsigned long get_sctlr_el1(void);
-
-extern char _end;
 
 /* ========================================================================== */
 /* PUNTO DE ENTRADA DEL KERNEL                                              */
@@ -46,64 +40,28 @@ void kernel(void) {
     kprintf("Sistema Operativo iniciando...\n");
     kprintf("Planificador por Prioridades\n");
 
-    unsigned long sctlr = get_sctlr_el1();
-    kprintf("Estado actual de SCTLR_EL1: 0x%x\n", sctlr);
-    mem_init();
+    /* 2. Inicializar Memoria (MMU y Heap) */
+    init_memory_system();
 
-    /* --- DIAGNÓSTICO --- */
-    kprintf("   [KERNEL] Inicio (.text): 0x40000000\n");
-    
-    /* Usamos '&' porque queremos la DIRECCIÓN del símbolo, no su valor */
-    unsigned long heap_start = (unsigned long)&_end;
-    
-    kprintf("   [KERNEL] Fin del Kernel (_end): 0x%x\n", heap_start);
-    kprintf("   [INFO] Listo para implementar kmalloc() a partir de aqui.\n");
+    /* 3. Inicializar Gestión de Procesos (PID 0) */
+    init_process_system();
 
-    /* Inicializamos Kernel como Proceso 0 */
-    current_process = &process[0];
-    current_process->pid = 0;
-    current_process->state = PROCESS_RUNNING;
-    current_process->priority = 20;
-    current_process->stack_addr = 0;
-    k_strncpy(current_process->name, "Kernel", 16);
-    num_process = 1;
-
-    /* 1. Calcular memoria disponible */
-    /* Vamos a darle 64 MB de Heap por ahora */
-    unsigned long heap_size = 64 * 1024 * 1024;
-
-    /* 2. Iniciar el Heap Manager */
-    kheap_init(heap_start, heap_start + heap_size);
-
-    /* 3. PRUEBA DE FUEGO: Pedir memoria dinámica */
-    kprintf("   [TEST] Probando kmalloc()...\n");
-
-    char *puntero1 = (char *)kmalloc(16);
-    k_strncpy(puntero1, "Hola Dinamico!", 16);
-
-    kprintf("   [TEST] ptr1 (16b): Dir 0x%x -> Contenido: '%s'\n", puntero1, puntero1);
-
-    int *array_numeros = (int *)kmalloc(4 * sizeof(int)); // Array de 4 enteros
-    array_numeros[0] = 1234;
-    array_numeros[3] = 9999;
-
-    kprintf("   [TEST] ptr2 (int*): Dir 0x%x -> Valor[0]: %d\n", array_numeros, array_numeros[0]);
-
-    kprintf("   [TEST] Liberando memoria...\n");
-    kfree(puntero1);
-    kfree(array_numeros);
-    /* ------------------------------------------- */
-
-    /* Crear shell interactivo */
-    create_process(shell_task, 1, "Shell");
-
-    /* Inicializar timer del sistema */
+    /* 4. Inicializar Timers e Interrupciones */
     timer_init();
 
-    kprintf("Lanzando Scheduler...\n");
-    
-    /* Loop principal del kernel - espera interrupciones */
+    /* 5. (Opcional) Tests de arranque */
+    test_memory();
+
+    /* 6. Lanzar servicios del sistema (Shell) */
+    if (create_process(shell_task, 1, "Shell") < 0) {
+        kprintf("FATAL: No se pudo iniciar el Shell.\n");
+        while(1);
+    }
+
+    /* 7. Ceder control al Scheduler */
+    kprintf("--- Inicializacion de Kernel Completada. Pasando control al Planificador ---\n");
+
     while(1) {
-        asm volatile("wfi");
+        asm volatile("wfi"); /* Wait For Interrupt (Loop del IDLE) */
     }
 }

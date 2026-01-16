@@ -29,6 +29,8 @@ extern int num_process;
  */
 long create_process(void (*fn)(void), int priority, const char *name);
 
+void init_process_system();
+
 /**
  * @brief Termina el proceso actual y cede la CPU
  */

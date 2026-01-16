@@ -17,6 +17,7 @@
  */
 
 #include "../../include/mm/mm.h"
+#include "../../include/mm/malloc.h"
 #include "../../include/drivers/io.h"
 #include "../../include/types.h"
 
@@ -29,7 +30,7 @@
 #define MT_NORMAL_NC     0x44  /* Normal sin cache */
 #define MT_NORMAL        0xFF  /* Normal con cache */
 
-/* Registro MAIR: 3 tipos en indices 0, 1 y 2 */
+/* Registro MAIR: 3 tipos en índices 0, 1 y 2 */
 #define MAIR_VALUE \
     (0x00UL << (0 * 8)) | \
     (0x44UL << (1 * 8)) | \
@@ -60,7 +61,7 @@
 /* DESCRIPTORES DE TABLA                                                     */
 /* ========================================================================== */
 
-    #define PT_BLOCK     0x1        /* Entrada de bloque (mapeo directo) */
+#define PT_BLOCK     0x1        /* Entrada de bloque (mapeo directo) */
 #define PT_AF        (1UL<<10)  /* Access Flag */
 #define PT_ISH       (3UL<<8)   /* Inner Shareable */
 
@@ -80,6 +81,8 @@
 
 /* Tabla L1: 512 entradas, cada una cubre 1 GB (total 512 GB) */
 uint64_t page_table_l1[512] __attribute__((aligned(4096)));
+
+extern char _end;
 
 /* ========================================================================== */
 /* INICIALIZACION DE LA MMU                                                  */
@@ -141,4 +144,21 @@ void mem_init() {
     tlb_invalidate_all();
 
     kprintf("   [MMU] Sistema estable y organizado.\n");
+}
+
+void init_memory_system() {
+    /* 1. Inicializar MMU (Paginacion) */
+    mem_init();
+
+
+    /* 2. Iniciar HEAP (Malloc) */
+    /* El Heap empieza justo donde acaba el kernel */
+    unsigned long heap_start = (unsigned long)&_end;
+
+    /* Definimos tamaño del HEAP (64MB) */
+    unsigned long heap_size = 64 * 1024 * 1024;
+
+    kheap_init(heap_start, heap_start + heap_size);
+
+    kprintf("   [MEM] Subsistema de memoria (MMU + Heap) listo.\n");
 }

@@ -37,9 +37,11 @@ extern void tlb_invalidate_all(void);
 /**
  * @brief Inicializa la MMU y activa memoria virtual
  * 
- * Configura tablas de paginas, mapea perifericos y RAM,
- * y activa la MMU con caches.
+ * Configura tablas de páginas, mapea perifericos y RAM,
+ * y activa la MMU con cachés.
  */
 void mem_init(void);
+
+void init_memory_system();
 
 #endif // MM_H

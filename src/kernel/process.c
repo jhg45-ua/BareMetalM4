@@ -90,6 +90,30 @@ long create_process(void (*fn)(void), int priority, const char *name) {
     return p->pid;
 }
 
+void init_process_system() {
+    /* Limpiamos la tabla de procesos (opcional si está en .bss, pero seguro) */
+    num_process = 0;
+
+    /* Configurar Proceso 0 (IDLE/KERNEL) */
+    /* Este proceso es especial: ya está ejecutándose y usa la pila de arranque */
+    struct pcb *kproc = &process[0];
+
+    kproc->pid = 0;
+    kproc->state = PROCESS_RUNNING;
+    kproc->priority = 0;
+    kproc->stack_addr = 0;
+    kproc->prempt_count = 0;
+
+    k_strncpy(kproc->name, "Kernel", 16);
+
+    /* Apuntamos el puntero global al proceso 0 */
+    current_process = kproc;
+    num_process = 1;
+
+    kprintf("   [PROC] Subsistema de procesos iniciado. PID 0 activo.\n");
+}
+
+
 /* ========================================================================== */
 /* TERMINACION DE PROCESOS                                                    */
 /* ========================================================================== */
