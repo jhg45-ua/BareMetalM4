@@ -60,12 +60,21 @@ volatile int sem_lock = 0;
 /* OPERACIONES DE SEMAFORO                                                   */
 /* ========================================================================== */
 
-/* Inicializa un semaforo con un valor inicial */
+/**
+ * @brief Inicializa un semáforo con un valor inicial
+ * @param s Puntero al semáforo
+ * @param value Valor inicial del contador
+ */
 void sem_init(struct semaphore *s, int value) {
     s->count = value;
 }
 
-/* Espera (P/wait): decrementa el semaforo, bloqueando si es necesario */
+/**
+ * @brief Operación P (wait) - Espera hasta que el recurso esté disponible
+ * @param s Puntero al semáforo
+ * 
+ * Decrementa el contador. Si es 0, espera activamente cediendo CPU.
+ */
 void sem_wait(struct semaphore *s) {
     while (1) {
         spin_lock(&sem_lock);
@@ -81,7 +90,12 @@ void sem_wait(struct semaphore *s) {
     }
 }
 
-/* Señal (V/signal): incrementa el semaforo, despertando waiters */
+/**
+ * @brief Operación V (signal) - Libera el recurso
+ * @param s Puntero al semáforo
+ * 
+ * Incrementa el contador, permitiendo que otros procesos accedan.
+ */
 void sem_signal(struct semaphore *s) {
     spin_lock(&sem_lock);
     s->count++;

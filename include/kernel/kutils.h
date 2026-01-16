@@ -40,8 +40,22 @@ int k_strcmp(const char *s1, const char *s2);
  */
 void k_strncpy(char *dst, const char *src, int max_len);
 
+/**
+ * @brief Rellena un bloque de memoria con un valor
+ * @param s Puntero al bloque
+ * @param c Valor a escribir
+ * @param n Número de bytes
+ * @return Puntero al bloque (s)
+ */
 void *memset(void *s, int c, unsigned long n);
 
+/**
+ * @brief Copia un bloque de memoria
+ * @param dest Destino
+ * @param src Origen
+ * @param n Número de bytes
+ * @return Puntero al destino
+ */
 void *memcpy(void *dest, const void *src, unsigned long n);
 
 #endif /* KUTILS_H */

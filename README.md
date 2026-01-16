@@ -7,10 +7,11 @@
 - **Arquitectura:** ARM64 (ARMv8-A) Cortex-A72
 - **Plataforma:** QEMU `virt` machine
 - **Multitarea Expropiatoria:** Planificador con prioridades y aging (hasta 64 procesos)
-- **Gestión de Memoria:** MMU con memoria virtual, asignador dinámico (`kmalloc`/`kfree`)
+- **Gestión de Memoria:** MMU con memoria virtual, asignador dinámico (`kmalloc`/`kfree`) con heap de 64MB
 - **Interrupciones:** GIC v2 + Timer de sistema con cambio de contexto automático
 - **Sincronización:** Spinlocks (LDXR/STXR) y semáforos
 - **Shell Interactivo:** Comandos para gestión de procesos y diagnóstico
+- **Sistema de Tests:** Validación automática de subsistemas en boot
 - **Sin dependencias:** Sin librerías estándar (`-ffreestanding -nostdlib`)
 
 ## 📂 Estructura Modular
@@ -28,11 +29,12 @@ src/
 │   └── timer.c     # GIC + Timer
 ├── mm/             # Gestión de memoria
 │   ├── mm.c        # MMU (tablas de páginas)
-│   └── malloc.c    # Asignador dinámico
+│   └── malloc.c    # Asignador dinámico (64MB heap)
 ├── shell/          # Interfaz de usuario
 │   └── shell.c     # Shell + comandos
 └── utils/          # Utilidades
-    └── kutils.c    # panic, delay, strings
+    ├── kutils.c    # panic, delay, strings
+    └── tests.c     # Tests del sistema
 ```
 
 Ver [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) para documentación completa.

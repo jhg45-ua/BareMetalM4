@@ -90,6 +90,12 @@ long create_process(void (*fn)(void), int priority, const char *name) {
     return p->pid;
 }
 
+/**
+ * @brief Inicializa el subsistema de gestión de procesos
+ * 
+ * Configura el proceso 0 (kernel/idle) y prepara las estructuras
+ * para la creación de nuevos procesos.
+ */
 void init_process_system() {
     /* Limpiamos la tabla de procesos (opcional si está en .bss, pero seguro) */
     num_process = 0;

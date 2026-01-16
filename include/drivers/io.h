@@ -21,8 +21,20 @@ void uart_putc(char c);
  */
 void uart_puts(const char *s);
 
+/**
+ * @brief Inicializa las interrupciones UART
+ */
 void uart_irq_init();
+
+/**
+ * @brief Manejador de interrupciones UART
+ */
 void uart_handle_irq();
+
+/**
+ * @brief Lee un carácter sin bloqueo
+ * @return Carácter leído o 0 si no hay datos
+ */
 char uart_getc_nonblocking();
 
 /**

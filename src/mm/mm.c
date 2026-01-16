@@ -146,6 +146,13 @@ void mem_init() {
     kprintf("   [MMU] Sistema estable y organizado.\n");
 }
 
+/**
+ * @brief Inicializa el sistema completo de memoria
+ * 
+ * Configura:
+ * 1. MMU (paginación y memoria virtual)
+ * 2. Heap del kernel (gestor de memoria dinámica)
+ */
 void init_memory_system() {
     /* 1. Inicializar MMU (Paginacion) */
     mem_init();

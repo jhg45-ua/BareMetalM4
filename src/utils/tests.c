@@ -1,3 +1,15 @@
+/**
+ * @file tests.c
+ * @brief Implementación de funciones de prueba
+ * 
+ * @details
+ *   Pruebas del sistema para validar memoria, procesos
+ *   y funcionalidades básicas del kernel.
+ * 
+ * @author Sistema Operativo Educativo BareMetalM4
+ * @version 0.3
+ */
+
 #include "../../include/tests.h"
 #include "../../include/drivers/io.h"
 #include "../../include/kernel/scheduler.h"
@@ -10,6 +22,14 @@ extern unsigned long get_sctlr_el1(void);
 /* Habilita las interrupciones IRQ en el procesador */
 extern void enable_interrupts(void);
 
+/**
+ * @brief Ejecuta pruebas del sistema de memoria
+ * 
+ * Verifica:
+ * - Funcionamiento de kmalloc/kfree
+ * - Estado de la MMU (SCTLR_EL1)
+ * - Escritura y lectura en memoria dinámica
+ */
 void test_memory() {
     unsigned long sctlr = get_sctlr_el1();
     kprintf("Estado actual de SCTLR_EL1: 0x%x\n", sctlr);

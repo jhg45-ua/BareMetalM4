@@ -63,6 +63,13 @@ void k_strncpy(char *dst, const char *src, int max_len) {
     dst[i] = '\0';
 }
 
+/**
+ * @brief Rellena un bloque de memoria con un valor específico
+ * @param s Puntero al bloque de memoria
+ * @param c Valor a escribir (convertido a unsigned char)
+ * @param n Número de bytes a rellenar
+ * @return Puntero al bloque de memoria (s)
+ */
 void *memset(void *s, int c, unsigned long n) {
     unsigned char *p = (unsigned char *)s;
     while (n--) {
@@ -71,6 +78,13 @@ void *memset(void *s, int c, unsigned long n) {
     return s;
 }
 
+/**
+ * @brief Copia un bloque de memoria de origen a destino
+ * @param dest Puntero al destino
+ * @param src Puntero al origen
+ * @param n Número de bytes a copiar
+ * @return Puntero al destino (dest)
+ */
 void *memcpy(void *dest, const void *src, unsigned long n) {
     char *d = (char *)dest;
     const char *s = (const char *)src;

@@ -273,33 +273,54 @@ kfree(buffer);
 
 ---
 
-#### 7. **kernel_main** (Inicialización)
+#### 7. **tests** (Sistema de Pruebas)
+**Archivos**: `src/utils/tests.c`, `include/tests.h`
+
+**Responsabilidad**: Validación y diagnóstico del sistema
+
+| Función | Descripción |
+|---------|-------------|
+| `test_memory()` | Valida kmalloc/kfree y estado de MMU |
+| `test_scheduler()` | Pruebas del planificador (futuro) |
+| `test_processes()` | Validación de creación de procesos (futuro) |
+
+**Características**:
+- Tests ejecutados en boot para validar subsistemas
+- Verificación de asignación y liberación de memoria
+- Diagnóstico del estado de registros de sistema (SCTLR_EL1)
+- Útil para debugging y desarrollo
+
+---
+
+#### 8. **kernel_main** (Inicialización)
 **Archivo**: `src/kernel/kernel.c`
 
 **Responsabilidad**: Punto de entrada e inicialización del sistema
 
 ```c
 void kernel() {
-    // 1. Inicializar MMU
-    mem_init();
+    // 1. Inicializar sistema de memoria (MMU + Heap)
+    init_memory_system();
+    //    - Configura MMU y tablas de páginas
+    //    - Inicializa heap de 64MB con kheap_init()
     
-    // 2. Inicializar kernel como Proceso 0
-    current_process = &process[0];
-    current_process->pid = 0;
-    current_process->state = PROCESS_RUNNING;
+    // 2. Inicializar sistema de procesos
+    init_process_system();
+    //    - Configura proceso 0 (Kernel/IDLE)
+    //    - Inicializa estructuras de PCB
     
-    // 3. Probar asignador dinámico (kmalloc)
-    char *test = kmalloc(16);
-    kfree(test);
-    
-    // 4. Crear shell y procesos de prueba
-    create_process(shell_task, 1, "Shell");
-    create_process(proceso_mortal, 5, "Proceso Mortal");
-    
-    // 5. Inicializar timer (GIC + interrupciones)
+    // 3. Inicializar timer (GIC + interrupciones)
     timer_init();
     
-    // 6. Loop principal (WFI)
+    // 4. Ejecutar tests del sistema (opcional)
+    test_memory();
+    //    - Valida kmalloc/kfree
+    //    - Verifica estado de MMU
+    
+    // 5. Crear shell y procesos del sistema
+    create_process(shell_task, 1, "Shell");
+    
+    // 6. Loop principal (IDLE)
     while(1) {
         asm volatile("wfi");  // Wait For Interrupt
     }
@@ -717,34 +738,39 @@ Ubicación: `src/io.c`, `include/io.h`
    └─ (No retorna)
 
 3. kernel.c ejecuta:
-   ├─ mem_init() - Inicializa MMU:
-   │   ├─ Crea tabla de páginas L1
-   │   ├─ Mapea periféricos (Device memory)
-   │   ├─ Mapea RAM del kernel (Normal memory)
-   │   ├─ Configura MAIR, TCR, TTBR0/1
-   │   ├─ Activa MMU y caches (SCTLR_EL1)
-   │   └─ Sistema ahora ejecuta en memoria virtual
-   ├─ Inicializa asignador dinámico (kmalloc/kfree)
-   │   ├─ Configura heap base
-   │   └─ Inicializa lista de bloques libres
-   ├─ Inicializa Kernel como Proceso 0
-   │   ├─ PID = 0, state = RUNNING
-   │   ├─ priority = 20 (media-baja)
-   │   └─ name = "Kernel"
-   ├─ Prueba sistema de memoria dinámica
-   │   ├─ kmalloc() de buffers de prueba
-   │   └─ kfree() para validar funcionamiento
-   ├─ Crea procesos:
-   │   ├─ shell_task (prioridad 1) - Shell interactivo
-   │   └─ proceso_mortal (prioridad 5) - Demo
-   │   └─ Cada uno con stack de 4 KB (asignado con kmalloc)
-   │   └─ cpu_context con x30 = dirección de función
-   ├─ timer_init() configura:
+   ├─ init_memory_system() - Inicializa sistema de memoria:
+   │   ├─ mem_init() configura MMU:
+   │   │   ├─ Crea tabla de páginas L1
+   │   │   ├─ Mapea periféricos (Device memory)
+   │   │   ├─ Mapea RAM del kernel (Normal memory)
+   │   │   ├─ Configura MAIR, TCR, TTBR0/1
+   │   │   ├─ Activa MMU y caches (SCTLR_EL1)
+   │   │   └─ Sistema ahora ejecuta en memoria virtual
+   │   └─ kheap_init() inicializa heap dinámico:
+   │       ├─ Heap base: símbolo _end del linker
+   │       ├─ Tamaño: 64 MB
+   │       ├─ Alineación a 16 bytes
+   │       └─ Bloque libre inicial cubre todo el heap
+   ├─ init_process_system() - Inicializa gestión de procesos:
+   │   ├─ Configura Proceso 0 (Kernel/IDLE)
+   │   │   ├─ PID = 0, state = RUNNING
+   │   │   ├─ priority = 0
+   │   │   └─ name = "Kernel"
+   │   ├─ Inicializa tabla de PCBs
+   │   └─ Apunta current_process al proceso 0
+   ├─ timer_init() configura interrupciones:
    │   ├─ Tabla de excepciones (VBAR_EL1)
    │   ├─ GIC distribuidor (0x08000000)
    │   ├─ GIC CPU interface (0x08010000)
    │   ├─ Timer físico (CNTP_TVAL_EL0)
    │   └─ Interrupciones habilitadas
+   ├─ test_memory() valida subsistemas:
+   │   ├─ Prueba kmalloc(16) / kfree()
+   │   ├─ Verifica SCTLR_EL1
+   │   └─ Valida escritura en memoria dinámica
+   ├─ create_process() crea procesos del sistema:
+   │   ├─ shell_task (prioridad 1) - Shell interactivo
+   │   └─ Cada proceso con stack de 4 KB (kmalloc)
    ├─ WFI (Wait For Interrupt)
    │   └─ CPU duerme hasta que llega IRQ
    └─ (Loop infinito)
@@ -975,6 +1001,12 @@ struct block_header {
 3. Intenta fusionar (coalesce) con bloques adyacentes libres
 4. Reduce fragmentación externa
 
+**kheap_init(start, end)**:
+1. Alinea la dirección de inicio a 16 bytes
+2. Crea el header inicial en esa dirección
+3. Marca todo el espacio como un único bloque libre
+4. Calcula tamaño: (end - start) - sizeof(header)
+
 #### Características
 
 | Característica | Descripción |
@@ -983,7 +1015,8 @@ struct block_header {
 | **Coalescing** | Fusión de bloques adyacentes libres |
 | **Split** | División de bloques grandes cuando es posible |
 | **Lista enlazada** | Gestión simple de bloques libres y ocupados |
-| **Alineación** | Bloques alineados a 16 bytes para rendimiento |
+| **Alineación** | Bloques alineados a 16 bytes para ARM64 |
+| **Tamaño del Heap** | 64 MB configurables (definido en init_memory_system) |
 
 #### Ejemplo de Uso
 
@@ -1042,6 +1075,7 @@ void *stack = kmalloc(4096);  // 4KB de pila
 - **Anti-fragmentación**: Coalescing reduce fragmentación externa
 - **Simple**: Implementación educativa, fácil de entender
 - **Determinista**: Sin llamadas al sistema, control total
+- **Heap de 64MB**: Espacio amplio para procesos y estructuras
 
 #### Limitaciones
 
@@ -1049,6 +1083,7 @@ void *stack = kmalloc(4096);  // 4KB de pila
 - **Sin compactación**: Fragmentación interna puede persistir
 - **Sin protección**: Todos los procesos comparten el mismo heap
 - **Sin estadísticas**: No hay tracking de memoria usada/libre
+- **Sin coalescing completo**: Implementación básica (mejora pendiente)
 
 ### Limitaciones del Subsistema de Memoria
 
@@ -1056,6 +1091,7 @@ void *stack = kmalloc(4096);  // 4KB de pila
 - No hay paginación dinámica (todo mapeado al inicio)
 - No hay swapping (sin disco)
 - Tabla L1 única (sin separación user/kernel)
+- El asignador usa first-fit (no es óptimo)
 
 ---
 
@@ -1359,9 +1395,9 @@ void proceso_1() {
 
 ---
 
-**Última actualización**: Enero 15, 2026  
+**Última actualización**: Enero 16, 2026  
 **Versión**: 0.3  
-**Refactorización**: Estructura modular y sistema de memoria dinámica implementados (Enero 2026)
+**Refactorización**: Estructura modular, sistema de memoria dinámica e inicialización estructurada implementados (Enero 2026)
 
 ---
 
@@ -1370,19 +1406,28 @@ void proceso_1() {
 ### v0.3 - Enero 2026
 - ✅ **Refactorización completa del kernel en módulos especializados**
   - Separación de responsabilidades: process, scheduler, shell, kutils
-  - Organización por subsistemas: drivers/, mm/, kernel/
+  - Organización por subsistemas: drivers/, mm/, kernel/, utils/
   - Headers organizados en `include/kernel/`, `include/drivers/`, `include/mm/`
 - ✅ **Sistema de asignación dinámica de memoria**
   - Implementación de `kmalloc()` y `kfree()`
-  - Asignador con lista enlazada de bloques
+  - Asignador con lista enlazada de bloques (first-fit)
   - Coalescing de bloques libres adyacentes
-  - Pilas de procesos ahora asignadas dinámicamente
+  - Heap de 64 MB configurado dinámicamente
+  - Pilas de procesos asignadas con kmalloc()
+- ✅ **Inicialización estructurada del sistema**
+  - `init_memory_system()` - Configura MMU + Heap
+  - `init_process_system()` - Inicializa gestión de procesos
+  - Proceso 0 (Kernel/IDLE) configurado automáticamente
+- ✅ **Sistema de tests integrado**
+  - `test_memory()` - Valida kmalloc/kfree y MMU
+  - Tests ejecutados en boot para diagnóstico
+  - Framework extensible para futuras pruebas
 - ✅ **Shell interactivo mejorado**
   - Comandos: help, ps, clear, panic, poweroff
   - Nombres descriptivos para procesos (campo `name` en PCB)
-- ✅ **Mejoras en mantenibilidad y escalabilidad del código**
+- ✅ **Mejoras en mantenibilidad y escalabilidad**
   - Mejor organización de directorios
-  - Documentación actualizada
+  - Documentación actualizada y completa
   - Código más modular y reutilizable
 
 ### v0.2 - 2025
