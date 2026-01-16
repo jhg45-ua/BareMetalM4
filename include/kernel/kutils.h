@@ -40,4 +40,8 @@ int k_strcmp(const char *s1, const char *s2);
  */
 void k_strncpy(char *dst, const char *src, int max_len);
 
+void *memset(void *s, int c, unsigned long n);
+
+void *memcpy(void *dest, const void *src, unsigned long n);
+
 #endif /* KUTILS_H */

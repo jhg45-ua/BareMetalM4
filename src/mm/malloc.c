@@ -13,6 +13,7 @@
 
 #include "../../include/mm/malloc.h"
 #include "../../include/drivers/io.h"
+#include "../../include/kernel/kutils.h"
 
 // Algoritmo: Lista Enlazada Simple (First Fit)
 
@@ -92,8 +93,14 @@ void *kmalloc(uint32_t size) {
             /* 3. Marcar como ocupado */
             curr->is_free = 0;
 
+            /* 4. Calcular puntero, LIMPIAR y devolver */
+            void *ptr = (void *)(curr + 1); // Puntero a los datos
+
+            /* Limpiamos 'size' bytes con 0 */
+            memset(ptr, 0, size);
+
             /* 4. Devolver puntero a LOS DATOS (justo después del header) */
-            return (void *)(curr + 1);
+            return ptr;
         }
         curr = curr->next;
     }
@@ -110,11 +117,20 @@ void *kmalloc(uint32_t size) {
 void kfree(void *ptr) {
     if (!ptr) return;
 
-    /* El puntero apunta a los datos. El header está justo antes. */
-    struct block_header *header = (struct block_header *)ptr - 1;
-    
-    header->is_free = 1;
-    
-    /* (Mejora futura: Aquí deberíamos "fusionar" (coalesce) 
-       bloques libres contiguos para evitar fragmentación) */
+    /* Obtenemos el header del bloque a liberar */
+    struct block_header *curr = (struct block_header *)ptr - 1;
+
+    curr->is_free = 1;
+
+    /* Fusion (Coalescing) */
+    /* Miramos hacia adelante: El siguiente bloque existe y es libre?? */
+    while (curr->next != 0 && curr->next->is_free) {
+        /* Sumamos el tamaño del siguiente bloque + su cabecera actual */
+        curr->size += curr->next->size + sizeof(struct block_header);
+
+        /* Saltamos el siguiente bloque  (lo engullimos) */
+        curr->next = curr->next->next;
+    }
+    /* Nota: Para un coalescing perfecto necesitaríamos una lista doblemente
+       enlazada para mirar también hacia ATRÁS (prev), pero esto ya mejora un 80% */
 }

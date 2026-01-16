@@ -17,9 +17,13 @@ SECTIONS {
   .data : { *(.data*) } :data
 
   .bss (NOLOAD) : {
-    *(.bss*)
-    *(COMMON)
-  } :data
+      . = ALIGN(16);
+      __bss_start = .;    /* <-- AQUÍ empieza el BSS */
+      *(.bss*)
+      *(COMMON)
+      . = ALIGN(16);
+      __bss_end = .;      /* <-- AQUÍ termina el BSS */
+    } :data
 
   . = ALIGN(0x1000);
   /* Reserva de stack */

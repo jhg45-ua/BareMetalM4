@@ -40,6 +40,17 @@ master:
     ldr x0, =_stack_top     /* Cargar direccion del tope del stack */
     mov sp, x0              /* SP = Stack Pointer */
 
+    ldr x0, =__bss_start
+    ldr x1, =__bss_end
+    sub x2, x1, x0          /* x2 = Tamaño de BSS */
+    cbz x2, run_kernel      /* Si el tamaño es 0, saltar */
+
+clear_bss_loop:
+    str xzr, [x0], #8       /* Escribir 0 (xzr) y avanzar 8 bytes */
+    sub x2, x2, #8           /* Restar 8 al contador */
+    cbnz x2, clear_bss_loop /* Si no es 0, repetir */
+
+run_kernel:
     /* PASO 3: Saltar a codigo C */
     bl kernel               /* Branch with Link a kernel() */
 

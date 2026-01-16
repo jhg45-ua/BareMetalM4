@@ -62,3 +62,20 @@ void k_strncpy(char *dst, const char *src, int max_len) {
     }
     dst[i] = '\0';
 }
+
+void *memset(void *s, int c, unsigned long n) {
+    unsigned char *p = (unsigned char *)s;
+    while (n--) {
+        *p++ = (unsigned char)c;
+    }
+    return s;
+}
+
+void *memcpy(void *dest, const void *src, unsigned long n) {
+    char *d = (char *)dest;
+    const char *s = (const char *)src;
+    while (n--) {
+        *d++ = *s++;
+    }
+    return dest;
+}
