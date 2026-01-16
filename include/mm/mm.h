@@ -42,6 +42,12 @@ extern void tlb_invalidate_all(void);
  */
 void mem_init(void);
 
+/**
+ * @brief Inicializa el subsistema de gestión de memoria
+ * 
+ * Configura estructuras de datos para la gestión dinámica
+ * de memoria (kmalloc/kfree).
+ */
 void init_memory_system();
 
 #endif // MM_H

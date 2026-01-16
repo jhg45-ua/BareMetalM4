@@ -119,6 +119,8 @@ BareMetalM4/
 | `delay()` | Retardo activo (busy-wait) para timing preciso |
 | `k_strcmp()` | Comparación de cadenas (sin libc) |
 | `k_strncpy()` | Copia de cadenas con límite de longitud |
+| `memset()` | Rellena bloque de memoria con un valor específico |
+| `memcpy()` | Copia bloques de memoria de origen a destino |
 
 **Uso**: Funciones base utilizadas por todos los módulos del sistema.
 
@@ -171,14 +173,11 @@ struct pcb {
 #### 4. **shell** (Interfaz de Usuario)
 **Archivos**: `src/shell/shell.c`, `include/kernel/shell.h`
 
-**Responsabilidad**: Shell interactivo y procesos de prueba
+**Responsabilidad**: Shell interactivo del sistema
 
 | Función | Descripción |
 |---------|-------------|
 | `shell_task()` | Shell con comandos: help, ps, clear, panic, poweroff |
-| `proceso_1()` | Proceso de prueba #1 (contador con sleep) |
-| `proceso_2()` | Proceso de prueba #2 (contador con sleep) |
-| `proceso_mortal()` | Proceso que termina automáticamente |
 
 **Comandos Disponibles**:
 - `help` - Muestra comandos disponibles
@@ -276,11 +275,14 @@ kfree(buffer);
 #### 7. **tests** (Sistema de Pruebas)
 **Archivos**: `src/utils/tests.c`, `include/tests.h`
 
-**Responsabilidad**: Validación y diagnóstico del sistema
+**Responsabilidad**: Validación, diagnóstico y procesos de prueba del sistema
 
 | Función | Descripción |
 |---------|-------------|
 | `test_memory()` | Valida kmalloc/kfree y estado de MMU |
+| `proceso_1()` | Proceso de prueba #1 (contador con sleep de 70 ticks) |
+| `proceso_2()` | Proceso de prueba #2 (contador con sleep de 10 ticks) |
+| `proceso_mortal()` | Proceso que cuenta hasta 3 y termina automáticamente |
 | `test_scheduler()` | Pruebas del planificador (futuro) |
 | `test_processes()` | Validación de creación de procesos (futuro) |
 
@@ -288,7 +290,13 @@ kfree(buffer);
 - Tests ejecutados en boot para validar subsistemas
 - Verificación de asignación y liberación de memoria
 - Diagnóstico del estado de registros de sistema (SCTLR_EL1)
+- Procesos de prueba para demostrar multitarea expropiativa
 - Útil para debugging y desarrollo
+
+**Detalles de Procesos de Prueba**:
+- `proceso_1()` y `proceso_2()` demuestran el scheduler con diferentes sleep times
+- `proceso_mortal()` demuestra la terminación correcta de procesos con `exit()`
+- Todos llaman a `enable_interrupts()` para permitir el timer
 
 ---
 
