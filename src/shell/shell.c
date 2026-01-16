@@ -37,7 +37,7 @@ extern void system_off(void);
  * 
  * Shell con línea de comandos que soporta:
  * - help: Muestra comandos disponibles
- * - ps: Lista procesos activos
+ * - ps: Lista de procesos activos
  * - clear: Limpia la pantalla
  * - panic: Provoca un kernel panic
  * - poweroff: Apaga el sistema
@@ -130,52 +130,4 @@ void shell_task(void) {
             }
         }
     }
-}
-
-/* ========================================================================== */
-/* PROCESOS DE USUARIO (PROCESOS DE PRUEBA)                                 */
-/* ========================================================================== */
-
-/**
- * @brief Primer proceso de usuario (multitarea expropiativa)
- */
-void proceso_1(void) {
-    enable_interrupts();
-    int c = 0;
-    while(1) {
-        kprintf("[P1] Proceso 1 (Cuenta: %d)\n", c++);
-        sleep(70); 
-    }
-}
-
-/**
- * @brief Segundo proceso de usuario (multitarea expropiativa)
- */
-void proceso_2(void) {
-    enable_interrupts();
-    int c = 0;
-    while(1) {
-        kprintf("     [P2] Proceso 2 (Cuenta: %d)\n", c++);
-        sleep(10);
-    }
-}
-
-/**
- * @brief Tarea que cuenta hasta 3 y muere
- * 
- * Este proceso demuestra la terminación de procesos.
- * Al finalizar, ret_from_fork captura el retorno y llama a exit().
- */
-void proceso_mortal(void) {
-    enable_interrupts();
-    
-    for (int i = 0; i < 3; i++) {
-        // kprintf("     [MORTAL] Vida restante: %d\n", 3 - i);
-        sleep(15); /* Duerme un poco */
-    }
-
-    // kprintf("     [MORTAL] Adios mundo cruel...\n");
-    /* AQUÍ OCURRE LA MAGIA:
-       Al terminar el for, la función hace 'return'.
-       El wrapper 'ret_from_fork' captura ese retorno y llama a 'exit()'. */
 }
