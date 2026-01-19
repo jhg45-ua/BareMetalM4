@@ -103,22 +103,6 @@ BareMetalM4/
 | `delay()` | Retardo activo (busy-wait) para timing preciso |
 | `k_strcmp()` | Comparación de cadenas (sin libc) |
 | `k_strncpy()` | Copia de cadenas con límite de longitud |
-
-**Uso**: Funciones base utilizadas por todos los módulos del sistema.
-
-### Módulos del Kernel
-
-#### 1. **kutils** (Utilidades del Kernel)
-**Archivos**: `src/utils/kutils.c`, `include/kernel/kutils.h`
-
-**Responsabilidad**: Funciones de utilidad general del kernel
-
-| Función | Descripción |
-|---------|-------------|
-| `panic()` | Detiene el sistema con mensaje de error crítico |
-| `delay()` | Retardo activo (busy-wait) para timing preciso |
-| `k_strcmp()` | Comparación de cadenas (sin libc) |
-| `k_strncpy()` | Copia de cadenas con límite de longitud |
 | `memset()` | Rellena bloque de memoria con un valor específico |
 | `memcpy()` | Copia bloques de memoria de origen a destino |
 

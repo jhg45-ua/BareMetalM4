@@ -51,6 +51,10 @@ void kernel(void) {
 
     /* 5. (Opcional) Tests de arranque */
     test_memory();
+    /* --- TESTS --- */
+    test_processes(); /* Lanza los mortales */
+    test_scheduler(); /* Lanza los infinitos */
+    /* ------------- */
 
     /* 6. Lanzar servicios del sistema (Shell) */
     if (create_process(shell_task, 1, "Shell") < 0) {

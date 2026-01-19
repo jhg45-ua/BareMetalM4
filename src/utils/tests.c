@@ -14,7 +14,7 @@
 #include "../../include/drivers/io.h"
 #include "../../include/kernel/scheduler.h"
 #include "../../include/kernel/kutils.h"
-#include "../../include/kernel/shell.h"
+#include "../../include/kernel/process.h"
 #include "../../include/mm/malloc.h"
 
 extern unsigned long get_sctlr_el1(void);
@@ -92,4 +92,31 @@ void proceso_mortal(void) {
     /* AQUÍ OCURRE LA MAGIA:
        Al terminar el for, la función hace 'return'.
        El wrapper 'ret_from_fork' captura ese retorno y llama a 'exit()'. */
+}
+
+/* ========================================================================== */
+/* LANZADORES (Lo que el Kernel llama)                                        */
+/* ========================================================================== */
+
+/**
+ * @brief Lanza pruebas de creación y destrucción
+ */
+void test_processes(void) {
+    kprintf("\n[TEST] --- Probando Ciclo de Vida (Zombies/Exit) ---\n");
+
+    /* Lanzamos 3 procesos que morirán pronto */
+    create_process(proceso_mortal, 10, "Mortal_A");
+    create_process(proceso_mortal, 10, "Mortal_B");
+    create_process(proceso_mortal, 10, "Mortal_C");
+}
+
+/**
+ * @brief Lanza pruebas de scheduler y sleep
+ */
+void test_scheduler(void) {
+    kprintf("\n[TEST] --- Probando Multitarea y Sleep ---\n");
+
+    /* P1 duerme mucho, P2 duerme poco. Deberías ver muchos P2 por cada P1 */
+    create_process(proceso_1, 20, "Lento");
+    create_process(proceso_2, 10, "Rapido");
 }

@@ -31,4 +31,14 @@ void proceso_2(void);
  */
 void proceso_mortal(void);
 
+/**
+ * @brief Lanza pruebas de creación y destrucción
+ */
+void test_processes(void);
+
+/**
+ * @brief Lanza pruebas de scheduler y sleep
+ */
+void test_scheduler(void);
+
 #endif //TESTS_H
