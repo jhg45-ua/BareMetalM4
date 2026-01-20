@@ -92,7 +92,7 @@ extern char _end;
  * @brief Inicializa la MMU y activa memoria virtual
  * 
  * Secuencia:
- * 1. Crear tabla de paginas L1 (bloques de 1GB)
+ * 1. Crear tabla de páginas L1 (bloques de 1GB)
  * 2. Mapear perifericos (Device) y RAM (Normal)
  * 3. Configurar registros (MAIR, TCR, TTBR)
  * 4. Activar MMU y caches

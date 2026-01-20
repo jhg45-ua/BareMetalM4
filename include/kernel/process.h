@@ -41,4 +41,6 @@ void exit(void);
  */
 void schedule_tail(void);
 
+void free_zombie();
+
 #endif /* PROCESS_H */

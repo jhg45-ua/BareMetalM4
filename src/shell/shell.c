@@ -81,17 +81,27 @@ void shell_task(void) {
             else if (k_strcmp(command_buf, "ps") == 0) {
                 kprintf("\nPID | Priority  | State | Name\n");
                 kprintf("----|-----------|-------|------\n");
-                for(int i=0; i<num_process; i++) {
-                     /* OJO: Si el proceso es ZOMBIE, lo indicamos */
-                     const char *estado = (process[i].state == 0) ? "RUN " : 
-                                          (process[i].state == 1) ? "RDY " : 
-                                          (process[i].state == 2) ? "BLK " : "ZOMB";
-                                          
-                     kprintf(" %d  |    %d     | %s  | %s\n", 
-                            process[i].pid, 
-                            process[i].priority, 
-                            estado,
-                            process[i].name);
+                for(int i = 0; i < MAX_PROCESS; i++) {
+                    /* 1. Si el hueco está VACÍO (0), no lo mostramos */
+                    if (process[i].state == PROCESS_UNUSED) {
+                        continue;
+                    }
+
+                    /* 2. Decodificar el estado correctamente */
+                    const char *estado_str;
+                    switch (process[i].state) {
+                        case PROCESS_RUNNING: estado_str = "RUN "; break; /* 1 */
+                        case PROCESS_READY:   estado_str = "RDY "; break; /* 2 */
+                        case PROCESS_BLOCKED: estado_str = "BLK "; break; /* 3 */
+                        case PROCESS_ZOMBIE:  estado_str = "ZOMB"; break; /* 4 */
+                        default:              estado_str = "????"; break;
+                    }
+
+                    kprintf(" %d  |    %d     | %s  | %s\n",
+                           process[i].pid,
+                           process[i].priority,
+                           estado_str,
+                           process[i].name);
                 }
                 kprintf("\n");
             }

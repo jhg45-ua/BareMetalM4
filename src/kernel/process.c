@@ -57,37 +57,51 @@ extern void ret_from_fork(void);
  * @return PID del proceso creado, -1 en caso de error
  */
 long create_process(void (*fn)(void), int priority, const char *name) {
-    if (num_process >= MAX_PROCESS) return -1;
-    
-    struct pcb *p = &process[num_process];
+    int pid = -1;
 
-    /* 1. Asignacion Dinamica de la pila */
-    /* Pedimos 4KB (4096) al HEAP */
+    /* 1. Buscar hueco libre (Reciclable) */
+    /* Buscamos el primer slot que sea UNUSED (0) */
+    for (int i = 0; i < MAX_PROCESS; i++) {
+        if (process[i].state == PROCESS_UNUSED) {
+            pid = i;
+            break;
+        }
+    }
+
+    /* Si no hay hueco, error */
+    if (pid == -1) {
+        kprintf("[KERNEL] Error: Tabla de procesos llena \n");
+        return -1;
+    }
+
+    struct pcb *p = &process[pid];
+
+    /* 2. Asignar memoria (Heap) */
     void *stack = kmalloc(4096);
+    if (!stack) {
+        kprintf("[KERNEL] Error: Out of Memory (PID %d)\n", pid);
+        return -1;
+    }
 
-    if (!stack) return -1;
-
+    /* Guardamos la direccion para que free_zombie pueda liberarla luego */
     p->stack_addr = (unsigned long)stack;
 
-    /* 2. Configurar PCB */
-    p->pid = num_process;
+    /* 3. Configurar PCB */
+    p->pid = pid;
     p->state = PROCESS_READY;
-    p->prempt_count = 0;
     p->priority = priority;
+    p->prempt_count = 0;
     p->wake_up_time = 0;
-
     k_strncpy(p->name, name, 16);
 
-    /* 3. Configurar Contexto */
-    /* Guardamos la función en x19 */
+    /* 4. Configuar contexto */
     p->context.x19 = (unsigned long)fn;
-    /* El PC apunta al wrapper */
     p->context.pc = (unsigned long)ret_from_fork;
-    /* La pila crece hacia abajo, apuntamos al final del bloque de 4KB */
     p->context.sp = (unsigned long)stack + 4096;
 
     num_process++;
-    return p->pid;
+
+    return pid;
 }
 
 /**
@@ -145,4 +159,25 @@ void exit(void) {
  */
 void schedule_tail(void) {
     /* Placeholder para lógica post-context-switch */
+}
+
+void free_zombie() {
+    /* Recorremos toda la tabla de procesos */
+    for (int i = 0; i < MAX_PROCESS; i++) {
+        if (process[i].state == PROCESS_ZOMBIE) {
+            // kprintf("[REAPER] Limpiando PID %d\n", process[i].pid); // Debug opcional
+
+            /* 1. CRÍTICO: Devolver la memoria al Heap */
+            if (process[i].stack_addr != 0) {
+                kfree((void*)process[i].stack_addr);
+                process[i].stack_addr = 0;
+            }
+
+            /* 2. Marcar el slot como reutilizable */
+            process[i].state = PROCESS_UNUSED;
+
+            /* Decrementamos contador */
+            num_process--;
+        }
+    }
 }

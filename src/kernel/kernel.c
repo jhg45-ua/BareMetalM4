@@ -51,10 +51,6 @@ void kernel(void) {
 
     /* 5. (Opcional) Tests de arranque */
     test_memory();
-    /* --- TESTS --- */
-    test_processes(); /* Lanza los mortales */
-    test_scheduler(); /* Lanza los infinitos */
-    /* ------------- */
 
     /* 6. Lanzar servicios del sistema (Shell) */
     if (create_process(shell_task, 1, "Shell") < 0) {
@@ -62,10 +58,17 @@ void kernel(void) {
         while(1);
     }
 
+    /* --- TESTS --- */
+    test_processes(); /* Lanza los mortales */
+    test_scheduler(); /* Lanza los infinitos */
+    /* ------------- */
+
     /* 7. Ceder control al Scheduler */
     kprintf("--- Inicializacion de Kernel Completada. Pasando control al Planificador ---\n");
 
     while(1) {
+        free_zombie();
+
         asm volatile("wfi"); /* Wait For Interrupt (Loop del IDLE) */
     }
 }

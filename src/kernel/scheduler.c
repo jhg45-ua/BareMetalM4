@@ -41,7 +41,7 @@ extern void cpu_switch_to(struct pcb *prev, struct pcb *next);
  */
 void schedule(void) {
     /* 1. Fase de Envejecimiento */
-    for (int i = 0; i < num_process; i++) {
+    for (int i = 0; i < MAX_PROCESS; i++) {
         if (process[i].state == PROCESS_READY && i != current_process->pid) {
             if (process[i].priority > 0) {
                 process[i].priority--;
@@ -53,7 +53,7 @@ void schedule(void) {
     int next_pid = -1;
     int highest_priority_found = 1000;
 
-    for (int i = 0; i < num_process; i++) {
+    for (int i = 0; i < MAX_PROCESS; i++) {
         if (process[i].state == PROCESS_READY || process[i].state == PROCESS_RUNNING) {
             if (process[i].priority < highest_priority_found) {
                 highest_priority_found = process[i].priority;
@@ -62,7 +62,16 @@ void schedule(void) {
         }
     }
 
-    if (next_pid == -1) return;
+    /* Si nadie quiere la CPU (todos dormidos o muertos)... */
+    if (next_pid == -1) {
+        /* ... se la damos al Kernel (PID 0) por defecto */
+        next_pid = 0;
+
+        /* SALVAVIDAS: Si el Kernel estaba bloqueado por error, lo despertamos */
+        if (process[0].state != PROCESS_RUNNING && process[0].state != PROCESS_READY) {
+            process[0].state = PROCESS_READY;
+        }
+    }
 
     struct pcb *next = &process[next_pid];
     struct pcb *prev = current_process;
@@ -98,7 +107,7 @@ volatile unsigned long sys_timer_count = 0;
 void timer_tick(void) {
     sys_timer_count++;
 
-    for (int i = 0; i < num_process; i++) {
+    for (int i = 0; i < MAX_PROCESS; i++) {
         if (process[i].state == PROCESS_BLOCKED) {
             if (process[i].wake_up_time <= sys_timer_count) {
                 process[i].state = PROCESS_READY;

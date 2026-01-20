@@ -10,10 +10,11 @@
 #define SCHED_H
 
 /* Estados de proceso */
-#define PROCESS_RUNNING 0
-#define PROCESS_READY 1
-#define PROCESS_BLOCKED 2
-#define PROCESS_ZOMBIE 3
+#define PROCESS_UNUSED 0
+#define PROCESS_RUNNING 1
+#define PROCESS_READY 2
+#define PROCESS_BLOCKED 3
+#define PROCESS_ZOMBIE 4
 
 /* Constantes del sistema */
 #define MAX_PROCESS 64
