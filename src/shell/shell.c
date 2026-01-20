@@ -80,8 +80,8 @@ void shell_task(void) {
                 kprintf("  poweroff - Apaga el sistema\n");
             } 
             else if (k_strcmp(command_buf, "ps") == 0) {
-                kprintf("\nPID | Priority  | State | Name\n");
-                kprintf("----|-----------|-------|------\n");
+                kprintf("\nPID | Prio | State | Time | Name\n");
+                kprintf("----|------|-------|------|------\n");
                 for(int i = 0; i < MAX_PROCESS; i++) {
                     /* 1. Si el hueco está VACÍO (0), no lo mostramos */
                     if (process[i].state == PROCESS_UNUSED) {
@@ -93,16 +93,27 @@ void shell_task(void) {
                     switch (process[i].state) {
                         case PROCESS_RUNNING: estado_str = "RUN "; break; /* 1 */
                         case PROCESS_READY:   estado_str = "RDY "; break; /* 2 */
-                        case PROCESS_BLOCKED: estado_str = "BLK "; break; /* 3 */
+                        case PROCESS_BLOCKED:
+                            if (process[i].block_reason == BLOCK_REASON_SLEEP) {
+                                estado_str = "SLEEP ";
+                                break;
+                            } else if (process[i].block_reason == BLOCK_REASON_WAIT) {
+                                estado_str = "WAIT ";
+                                break;
+                            } else {
+                                estado_str = "BLK ";
+                                break;
+                            }
                         case PROCESS_ZOMBIE:  estado_str = "ZOMB"; break; /* 4 */
                         default:              estado_str = "????"; break;
                     }
 
-                    kprintf(" %d  |    %d     | %s  | %s\n",
-                           process[i].pid,
-                           process[i].priority,
-                           estado_str,
-                           process[i].name);
+                    kprintf(" %d  |  %d   | %s  | %d  | %s\n",
+                            process[i].pid,
+                            process[i].priority,
+                            estado_str,
+                            process[i].cpu_time,
+                            process[i].name);
                 }
                 kprintf("\n");
             }

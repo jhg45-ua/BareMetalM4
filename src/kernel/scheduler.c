@@ -107,11 +107,18 @@ volatile unsigned long sys_timer_count = 0;
 void timer_tick(void) {
     sys_timer_count++;
 
+    if (current_process->state == PROCESS_RUNNING) {
+        current_process->cpu_time++;
+    }
+
     for (int i = 0; i < MAX_PROCESS; i++) {
         if (process[i].state == PROCESS_BLOCKED) {
-            if (process[i].wake_up_time <= sys_timer_count) {
-                process[i].state = PROCESS_READY;
-                // kprintf(" [KERNEL] Despertando proceso %d en tick %d\n", i, sys_timer_count);    // DEBUG
+            if (process[i].block_reason == BLOCK_REASON_SLEEP) {
+                if (process[i].wake_up_time <= sys_timer_count) {
+                    process[i].state = PROCESS_READY;
+                    process[i].block_reason = BLOCK_REASON_NONE;
+                    // kprintf(" [KERNEL] Despertando proceso %d en tick %d\n", i, sys_timer_count);    // DEBUG
+                }
             }
         }
     }
@@ -128,5 +135,6 @@ void timer_tick(void) {
 void sleep(unsigned int ticks) {
     current_process->wake_up_time = sys_timer_count + ticks;
     current_process->state = PROCESS_BLOCKED;
+    current_process->block_reason = BLOCK_REASON_SLEEP;
     schedule();
 }

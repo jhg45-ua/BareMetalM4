@@ -92,9 +92,14 @@ long create_process(void (*fn)(void), int priority, const char *name) {
     p->priority = priority;
     p->prempt_count = 0;
     p->wake_up_time = 0;
+
+    p->cpu_time = 0;
+    p->block_reason = BLOCK_REASON_NONE;
+    p->exit_code = 0;
+
     k_strncpy(p->name, name, 16);
 
-    /* 4. Configuar contexto */
+    /* 4. Configurar contexto */
     p->context.x19 = (unsigned long)fn;
     p->context.pc = (unsigned long)ret_from_fork;
     p->context.sp = (unsigned long)stack + 4096;
@@ -102,6 +107,16 @@ long create_process(void (*fn)(void), int priority, const char *name) {
     num_process++;
 
     return pid;
+}
+
+/**
+ * @brief Crea un Hilo del Kernel (Kernel Thread)
+ * * En BareMetalM4 (v0.3), como no hay separación de memoria virtual por proceso,
+ * todos los procesos son técnicamente hilos del kernel que comparten espacio de direcciones.
+ */
+long create_thread(void (*fn)(void), int priority, const char *name) {
+    /* Wrapper sobre create_process para cumplir con la semántica del Tema 2 */
+    return create_process(fn, priority, name);
 }
 
 /**

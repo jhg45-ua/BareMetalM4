@@ -29,6 +29,13 @@ extern int num_process;
  */
 long create_process(void (*fn)(void), int priority, const char *name);
 
+/**
+ * @brief Crea un Hilo del Kernel (Kernel Thread)
+ * * En BareMetalM4 (v0.3), como no hay separación de memoria virtual por proceso,
+ * todos los procesos son técnicamente hilos del kernel que comparten espacio de direcciones.
+ */
+long create_thread(void (*fn)(void), int priority, const char *name);
+
 void init_process_system();
 
 /**

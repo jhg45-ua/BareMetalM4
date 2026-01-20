@@ -16,6 +16,11 @@
 #define PROCESS_BLOCKED 3
 #define PROCESS_ZOMBIE 4
 
+/* Razones de bloqueo (Mejora visual) */
+#define BLOCK_REASON_NONE 0
+#define BLOCK_REASON_SLEEP 1
+#define BLOCK_REASON_WAIT 2     /* Semaforos I/O */
+
 /* Constantes del sistema */
 #define MAX_PROCESS 64
 #define BUFFER_SIZE 4
@@ -46,11 +51,15 @@ struct pcb {
     struct cpu_context context;
     long state;
     long pid;
-    long prempt_count;
     int priority;
+    long prempt_count;
     unsigned long wake_up_time;
-    unsigned long stack_addr; /* Dirección base de la pila asignada */
-    char name[16]; /* Nombre del proceso */
+    char name[16];              /* Nombre del proceso */
+    unsigned long stack_addr;   /* Dirección base de la pila asignada */
+
+    unsigned long cpu_time;     /* Contador de tiempo de cpu */
+    int block_reason;           /* Razon de bloqueo */
+    int exit_code;              /* Valor de retorno al morir */
 };
 
 #endif // SCHED_H
