@@ -57,7 +57,7 @@ void proceso_1(void) {
     enable_interrupts();
     int c = 0;
     while(c < 10) {
-        kprintf("[P1] Proceso 1 (Cuenta: %d)\n", c++);
+        kprintf("[P1] Proceso Lento (Cuenta: %d)\n", c++);
         sleep(70);
         c++;
     }
@@ -70,7 +70,7 @@ void proceso_2(void) {
     enable_interrupts();
     int c = 0;
     while(c < 20) {
-        kprintf("     [P2] Proceso 2 (Cuenta: %d)\n", c++);
+        kprintf("     [P2] Proceso Rapido (Cuenta: %d)\n", c++);
         sleep(10);
         c++;
     }

@@ -15,7 +15,6 @@
 #include "../../include/kernel/process.h"
 #include "../../include/kernel/shell.h"
 #include "../../include/mm/mm.h"
-#include "../../include/tests.h"
 
 /* ========================================================================== */
 /* FUNCIONES EXTERNAS                                                        */
@@ -49,21 +48,13 @@ void kernel(void) {
     /* 4. Inicializar Timers e Interrupciones */
     timer_init();
 
-    /* 5. (Opcional) Tests de arranque */
-    test_memory();
-
-    /* 6. Lanzar servicios del sistema (Shell) */
+    /* 5. Lanzar servicios del sistema (Shell) */
     if (create_process(shell_task, 1, "Shell") < 0) {
         kprintf("FATAL: No se pudo iniciar el Shell.\n");
         while(1);
     }
 
-    /* --- TESTS --- */
-    test_processes(); /* Lanza los mortales */
-    test_scheduler(); /* Lanza los infinitos */
-    /* ------------- */
-
-    /* 7. Ceder control al Scheduler */
+    /* 6. Ceder control al Scheduler */
     kprintf("--- Inicializacion de Kernel Completada. Pasando control al Planificador ---\n");
 
     while(1) {

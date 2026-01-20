@@ -17,6 +17,7 @@
 #include "../../include/kernel/scheduler.h"
 #include "../../include/kernel/kutils.h"
 #include "../../include/kernel/shell.h"
+#include "../../include/tests.h"
 
 /* ========================================================================== */
 /* FUNCIONES EXTERNAS                                                        */
@@ -104,6 +105,15 @@ void shell_task(void) {
                            process[i].name);
                 }
                 kprintf("\n");
+            }
+            else if (k_strcmp(command_buf, "test") == 0) {
+                kprintf("Iniciando bateria de tests..\n");
+
+                test_memory();      /* Test simple sincrono */
+
+                test_processes();   /* Lanza procesos mortales */
+
+                test_scheduler();   /* Comprueba el scheduler */
             }
             else if (k_strcmp(command_buf, "clear") == 0) {
                 /* Código ANSI para limpiar terminal */
