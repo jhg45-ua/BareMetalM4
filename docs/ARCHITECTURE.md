@@ -333,7 +333,7 @@ void kernel() {
 
 **Ejemplo**: Para modificar el algoritmo de scheduling, solo se edita [scheduler.c](../src/kernel/scheduler.c) sin tocar código de procesos, shell, drivers o utilidades.
 
-**Refactorización v0.3**: El código originalmente monolítico fue reorganizado en módulos especializados en enero de 2026, mejorando significativamente la estructura del proyecto.
+**Refactorización v0.3.5**: El código originalmente monolítico fue reorganizado en módulos especializados en enero de 2026, mejorando significativamente la estructura del proyecto.
 
 ---
 
@@ -1305,7 +1305,7 @@ void proceso_1() {
 
 ## Limitaciones y Mejoras Futuras
 
-### ✅ Características Implementadas (v0.3)
+### ✅ Características Implementadas (v0.3.5)
 - [x] Arquitectura modular con separación de subsistemas
 - [x] Asignación dinámica de memoria (kmalloc/kfree)
 - [x] Planificador expropiativo con aging
@@ -1388,12 +1388,19 @@ void proceso_1() {
 ---
 
 **Última actualización**: Enero 16, 2026  
-**Versión**: 0.3  
+**Versión**: 0.3.5  
 **Refactorización**: Estructura modular, sistema de memoria dinámica e inicialización estructurada implementados (Enero 2026)
 
 ---
 
 ## Historial de Cambios
+
+### v0.3.5 - Enero 20, 2026
+- ✅ **Actualización de versión y mantenimiento**
+  - Actualización del número de versión en todo el proyecto
+  - Mejoras en la documentación del sistema
+  - Refinamiento de comentarios en código fuente
+  - Preparación para futuras características
 
 ### v0.3 - Enero 2026
 - ✅ **Refactorización completa del kernel en módulos especializados**

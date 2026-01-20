@@ -8,7 +8,7 @@
  *   - Procesos de prueba para demostrar multitarea
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.3
+ * @version 0.3.5
  */
 
 #include "../../include/sched.h"
@@ -49,7 +49,7 @@ void shell_task(void) {
     char command_buf[64];
     int idx = 0;
 
-    kprintf("\n[SHELL] Bienvenido a BareMetalM4 OS v0.3\n");
+    kprintf("\n[SHELL] Bienvenido a BareMetalM4 OS v0.3.5\n");
     kprintf("[SHELL] Escribe 'help' para ver comandos.\n");
     kprintf("> "); // Prompt
 
