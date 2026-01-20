@@ -23,6 +23,7 @@
 
 #include <stdarg.h>
 #include "../../include/drivers/io.h"
+#include "../../include/semaphore.h"
 
 /* Registro base de la UART en QEMU virt (0x09000000) */
 volatile unsigned int * const UART0_DIR = (unsigned int *)0x09000000;
@@ -32,6 +33,10 @@ volatile unsigned int * const UART0_DR   = (unsigned int *)0x09000000; /* Data R
 volatile unsigned int * const UART0_FR   = (unsigned int *)0x09000018; /* Flag Register */
 volatile unsigned int * const UART0_IMSC = (unsigned int *)0x09000038; /* Interrupt Mask Set/Clear */
 volatile unsigned int * const UART0_ICR  = (unsigned int *)0x09000044; /* Interrupt Clear Register */
+
+/* Semaforos para la consola */
+struct semaphore console_mutex;
+int console_mutex_init = 0;
 
 /**
  * @brief Escribe un carácter en la UART
@@ -172,6 +177,14 @@ void print_num(long val, int base) {
  *   - %x: int (entero hexadecimal)
  */
 void kprintf(const char *fmt, ...) {
+    /* Inicialización Lazy (la primera vez que alguien imprime) */
+    if (!console_mutex_init) {
+        sem_init(&console_mutex, 1); /* 1 = Mutex (desbloqueado) */
+        console_mutex_init = 1;
+    }
+
+    sem_wait(&console_mutex);
+
     va_list args;
     va_start(args, fmt);
 
@@ -220,4 +233,6 @@ void kprintf(const char *fmt, ...) {
         fmt++;
     }
     va_end(args);
+
+    sem_signal(&console_mutex);
 }
