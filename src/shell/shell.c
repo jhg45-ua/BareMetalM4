@@ -76,7 +76,8 @@ void shell_task(void) {
                 kprintf("  help               - Muestra esta ayuda\n");
                 kprintf("  ps                 - Lista los procesos (simulado)\n");
                 kprintf("  test               - Ejecutando test de memoria, procesos y scheduler\n");
-                kprintf("  test-user_mode     - Ejecuta test del modo usuario\n");
+                kprintf("  test_user_mode     - Ejecuta test del modo usuario\n");
+                kprintf("  test_crash         - Ejecuta test de proteccion de memoria basica\n");
                 kprintf("  clear              - Limpia la pantalla\n");
                 kprintf("  panic              - Provoca un Kernel Panic\n");
                 kprintf("  poweroff           - Apaga el sistema\n");
@@ -128,8 +129,11 @@ void shell_task(void) {
 
                 test_scheduler();   /* Comprueba el scheduler */
             }
-            else if (k_strcmp(command_buf, "test-user_mode") == 0) {
+            else if (k_strcmp(command_buf, "test_user_mode") == 0) {
                 create_process((void(*)(void*)) user_task, nullptr, 0, "test_user_mode");
+            }
+            else if (k_strcmp(command_buf, "test_crash") == 0) {
+                create_process((void(*)(void*)) kamikaze_test, nullptr, 0, "test_user_mode");
             }
             else if (k_strcmp(command_buf, "clear") == 0) {
                 /* Código ANSI para limpiar terminal */

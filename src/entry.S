@@ -28,7 +28,7 @@
 .global error_invalid
 
 
-/* MACRO: Guardar todo el contexto (Registros x0-x30, ELR, SPSR) */
+/* MACRO: Guardar el contexto (Registros x0-x30, ELR, SPSR) */
 .macro kernel_entry
     sub sp, sp, #256
     stp x0, x1, [sp, #16 * 0]
@@ -189,6 +189,16 @@ el0_irq:
     b irq_handler_stub
 
 error_invalid:
+    /* Guardamos estado y llamamos al limpiador */
+    kernel_entry
+
+    /* Opcional: Podríamos leer ESR_EL1 para decir por qué falló,
+       pero por ahora asumimos fallo general */
+
+    bl handle_fault  /* Llama a C para matar el proceso */
+
+    /* Si handle_fault llama a exit(), nunca volveremos aquí.
+       Pero si volviera, nos aseguramos de no romper nada. */
     b .
 
 /* ========================================================== */

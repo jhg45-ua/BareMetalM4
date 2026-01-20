@@ -145,3 +145,16 @@ void user_task() {
         : : : "x8", "x19"
     );
 }
+
+void kamikaze_test() {
+    kprintf("\n[KAMIKAZE] Soy un proceso malo. Voy a escribir en NULL...\n");
+
+    /* Intentamos escribir en la direccion 0x0 (prohibida/no mapeada o kernel) */
+    int *p = (int *)0x0;
+    *p = 1234;
+
+    kprintf(("[KAMIKAZE] Si lees esto, la seguridad ha fallado"));
+
+    /* Salida normal (no deberíamos llegar aquí) */
+    asm volatile("mov x8, #1; mov x19, #0; svc #0");
+}

@@ -43,4 +43,7 @@ void test_scheduler(void);
 
 void user_task();
 
+void kamikaze_test();
+
+
 #endif //TESTS_H

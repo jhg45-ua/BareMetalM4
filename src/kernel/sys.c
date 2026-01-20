@@ -34,3 +34,11 @@ void syscall_handler(struct pt_regs *regs, int syscall) {
             break;
     }
 }
+
+void handle_fault(void) {
+    kprintf("\n[CPU] CRITICAL: Excepcion no controlada (Segmentation Fault)!\n");
+    kprintf("[CPU] Matando al proceso actual por violacion de segmento.\n");
+
+    /* En lugar de colgar el sistema, matamos solo al proceso culpable */
+    exit();
+}
