@@ -49,13 +49,32 @@ void kernel(void) {
     timer_init();
 
     /* 5. Lanzar servicios del sistema (Shell) */
-    if (create_process(shell_task, 1, "Shell") < 0) {
+    if (create_process((void(*)(void*))shell_task, nullptr, 1, "Shell") < 0) {
         kprintf("FATAL: No se pudo iniciar el Shell.\n");
         while(1);
     }
 
     /* 6. Ceder control al Scheduler */
     kprintf("--- Inicializacion de Kernel Completada. Pasando control al Planificador ---\n");
+
+    /* --- PRUEBA DE SYSCALL (SVC) --- */
+    kprintf("[KERNEL] Probando SVC (System Call)...\n");
+
+    /* Ejecutamos instrucción SVC #0 manualmente
+       x8 = 0 (SYS_WRITE)
+       x19 = dirección del string (Truco: en sys.c usaste x19 para el buffer)
+       NOTA: Normalmente se usa x0, pero en tu sys.c leíste x19.
+       Vamos a ajustarnos a tu sys.c por ahora.
+    */
+    char *msg = "Hola desde Syscall!\n";
+    asm volatile(
+        "mov x8, #0\n"        // Syscall 0 (WRITE)
+        "mov x19, %0\n"       // Poner mensaje en x19 (según tu sys.c)
+        "svc #0\n"            // Disparar excepción Síncrona
+        : : "r"(msg) : "x8", "x19"
+    );
+    kprintf("[KERNEL] Regreso de SVC exitoso.\n");
+    /* ------------------------------ */
 
     while(1) {
         free_zombie();

@@ -75,16 +75,16 @@ vectors:
     VENTRY hang    /* +0x180: SError */
 
     /* GRUPO 2: Current EL with SPx (EL1h) - KERNEL MODE */
-    VENTRY hang              /* +0x200: Synchronous */
+    VENTRY el1_sync          /* +0x200: Synchronous */
     VENTRY irq_handler_stub  /* +0x280: IRQ <- Timer interrupt */
     VENTRY hang              /* +0x300: FIQ */
     VENTRY hang              /* +0x380: SError */
 
     /* GRUPO 3: Lower EL (AArch64) - USER MODE 64-bit */
-    VENTRY hang    /* +0x400: Synchronous */
-    VENTRY hang    /* +0x480: IRQ */
-    VENTRY hang    /* +0x500: FIQ */
-    VENTRY hang    /* +0x580: SError */
+    VENTRY el0_sync /* +0x400: Synchronous */
+    VENTRY el0_sync /* +0x480: IRQ */
+    VENTRY hang     /* +0x500: FIQ */
+    VENTRY hang     /* +0x580: SError */
 
     /* GRUPO 4: Lower EL (AArch32) - USER MODE 32-bit */
     VENTRY hang    /* +0x600: Synchronous */

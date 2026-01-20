@@ -22,6 +22,63 @@
 .global enable_interrupts
 .global ret_from_fork
 .global exit
+.global el1_sync
+.global el0_sync
+.global el0_irq
+.global error_invalid
+
+
+/* MACRO: Guardar todo el contexto (Registros x0-x30, ELR, SPSR) */
+.macro kernel_entry
+    sub sp, sp, #256
+    stp x0, x1, [sp, #16 * 0]
+    stp x2, x3, [sp, #16 * 1]
+    stp x4, x5, [sp, #16 * 2]
+    stp x6, x7, [sp, #16 * 3]
+    stp x8, x9, [sp, #16 * 4]
+    stp x10, x11, [sp, #16 * 5]
+    stp x12, x13, [sp, #16 * 6]
+    stp x14, x15, [sp, #16 * 7]
+    stp x16, x17, [sp, #16 * 8]
+    stp x18, x19, [sp, #16 * 9]
+    stp x20, x21, [sp, #16 * 10]
+    stp x22, x23, [sp, #16 * 11]
+    stp x24, x25, [sp, #16 * 12]
+    stp x26, x27, [sp, #16 * 13]
+    stp x28, x29, [sp, #16 * 14]
+
+    mrs x21, spsr_el1
+    mrs x22, elr_el1
+    stp x30, x21, [sp, #16 * 15]
+    str x22, [sp, #16 * 16]
+.endm
+
+/* MACRO: Restaurar contexto y volver (ERET) */
+.macro kernel_exit
+    ldr x22, [sp, #16 * 16]
+    ldp x30, x21, [sp, #16 * 15]
+    msr elr_el1, x22
+    msr spsr_el1, x21
+
+    ldp x28, x29, [sp, #16 * 14]
+    ldp x26, x27, [sp, #16 * 13]
+    ldp x24, x25, [sp, #16 * 12]
+    ldp x22, x23, [sp, #16 * 11]
+    ldp x20, x21, [sp, #16 * 10]
+    ldp x18, x19, [sp, #16 * 9]
+    ldp x16, x17, [sp, #16 * 8]
+    ldp x14, x15, [sp, #16 * 7]
+    ldp x12, x13, [sp, #16 * 6]
+    ldp x10, x11, [sp, #16 * 5]
+    ldp x8, x9, [sp, #16 * 4]
+    ldp x6, x7, [sp, #16 * 3]
+    ldp x4, x5, [sp, #16 * 2]
+    ldp x2, x3, [sp, #16 * 1]
+    ldp x0, x1, [sp, #16 * 0]
+
+    add sp, sp, #256
+    eret
+.endm
 
 /**
  * cpu_switch_to - Cambio de contexto entre procesos
@@ -72,63 +129,9 @@ enable_interrupts:
  * realizó cambio de contexto).
  */
 irq_handler_stub:
-    /* Reservar espacio en stack (256 bytes) */
-    sub sp, sp, #256
-    
-    /* Guardar todos los registros x0-x29 */
-    stp x0, x1, [sp, #16 * 0]
-    stp x2, x3, [sp, #16 * 1]
-    stp x4, x5, [sp, #16 * 2]
-    stp x6, x7, [sp, #16 * 3]
-    stp x8, x9, [sp, #16 * 4]
-    stp x10, x11, [sp, #16 * 5]
-    stp x12, x13, [sp, #16 * 6]
-    stp x14, x15, [sp, #16 * 7]
-    stp x16, x17, [sp, #16 * 8]
-    stp x18, x19, [sp, #16 * 9]
-    stp x20, x21, [sp, #16 * 10]
-    stp x22, x23, [sp, #16 * 11]
-    stp x24, x25, [sp, #16 * 12]
-    stp x26, x27, [sp, #16 * 13]
-    stp x28, x29, [sp, #16 * 14]
-    
-    /* Guardar registros de estado de excepcion */
-    mrs x21, spsr_el1    /* Program Status Register */
-    mrs x22, elr_el1     /* Exception Link Register (direccion de retorno) */
-    stp x30, x21, [sp, #16 * 15]
-    str x22, [sp, #16 * 16]
-
-    /* Llamar al handler en C */
-    bl handle_timer_irq
-
-    /* Restaurar registros de estado */
-    ldr x22, [sp, #16 * 16]
-    ldp x30, x21, [sp, #16 * 15]
-    msr elr_el1, x22
-    msr spsr_el1, x21
-
-    /* Restaurar todos los registros x0-x29 */
-    ldp x28, x29, [sp, #16 * 14]
-    ldp x26, x27, [sp, #16 * 13]
-    ldp x24, x25, [sp, #16 * 12]
-    ldp x22, x23, [sp, #16 * 11]
-    ldp x20, x21, [sp, #16 * 10]
-    ldp x18, x19, [sp, #16 * 9]
-    ldp x16, x17, [sp, #16 * 8]
-    ldp x14, x15, [sp, #16 * 7]
-    ldp x12, x13, [sp, #16 * 6]
-    ldp x10, x11, [sp, #16 * 5]
-    ldp x8, x9, [sp, #16 * 4]
-    ldp x6, x7, [sp, #16 * 3]
-    ldp x4, x5, [sp, #16 * 2]
-    ldp x2, x3, [sp, #16 * 1]
-    ldp x0, x1, [sp, #16 * 0]
-    
-    /* Liberar espacio del stack */
-    add sp, sp, #256
-    
-    /* Retornar de la excepcion */
-    eret
+    kernel_entry            // Macro: Guarda todo
+    bl handle_timer_irq     // Llama a C
+    kernel_exit             // Macro: Restaura y hace ERET
 
 /**
  * ret_from_fork - Punto de entrada para nuevos procesos
@@ -143,11 +146,69 @@ irq_handler_stub:
 ret_from_fork:
     bl schedule_tail
 
-    mov x0, x19        /* Recuperamos la funcion real desde x19 */
-    blr x0              /* Saltamos a la funcion del usuario: fn() */
+    mov x0, x20
+
+    blr x19
 
     /* Si la funcion retorna (acaba), caemos aqui */
     bl exit             /* Llamamos a exit() para morir ordenadamente */
 
     /* Nunca deberiamos llegar aqui, pero por si acaso... */
     bl hang
+
+/**
+ * Syscall desde kernel
+ */
+ el1_sync:
+    kernel_entry
+    mrs x25, esr_el1
+    lsr x24, x25, #26
+    cmp x24, #0x15  // Es SVC??
+    b.eq handle_svc
+    b error_invalid
+
+ /**
+  * Syscall desde usuario
+  */
+  el0_sync:
+    kernel_entry
+    mrs x25, esr_el1
+    lsr x24, x25, #26
+    cmp x24, #0x15
+    b.eq handle_svc
+    b error_invalid
+
+handle_svc:
+    mov x0, sp  // arg 1: struct pt_regs *
+    mov x1, x8  // arg 2: syscall
+    bl syscall_handler
+    kernel_exit
+
+/* IRQ desde Usuario (reusamos el stub) */
+el0_irq:
+    b irq_handler_stub
+
+error_invalid:
+    b .
+
+/* ========================================================== */
+/* TRANSICIÓN A MODO USUARIO                                  */
+/* ========================================================== */
+
+.global move_to_user_mode
+
+move_to_user_mode:
+    // 1. Configurar PSTATE para EL0
+    // m[3:0] = 0000 (EL0t)
+    // DAIF = 0000 (Interrupciones habilitadas)
+    mov x2, #0
+    msr spsr_el1, x2
+
+    // 2. Configurar donde aterrizar (PC)
+    msr elr_el1, x0
+
+    // 3. Configurar el stack del usuario
+    msr sp_el0, x1
+
+    // 4. Salto de fe
+    eret

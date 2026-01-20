@@ -27,14 +27,14 @@ extern int num_process;
  * @param name Nombre descriptivo del proceso (máx 15 chars)
  * @return PID del proceso creado, -1 en caso de error
  */
-long create_process(void (*fn)(void), int priority, const char *name);
+long create_process(void (*fn)(void*), void *arg, int priority, const char *name);
 
 /**
  * @brief Crea un Hilo del Kernel (Kernel Thread)
  * * En BareMetalM4 (v0.3.5), como no hay separación de memoria virtual por proceso,
  * todos los procesos son técnicamente hilos del kernel que comparten espacio de direcciones.
  */
-long create_thread(void (*fn)(void), int priority, const char *name);
+long create_thread(void (*fn)(void*), int priority, const char *name);
 
 void init_process_system();
 

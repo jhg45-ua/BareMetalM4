@@ -107,9 +107,9 @@ void test_processes(void) {
     kprintf("\n[TEST] --- Probando Ciclo de Vida (Zombies/Exit) ---\n");
 
     /* Lanzamos 3 procesos que morirán pronto */
-    create_process(proceso_mortal, 10, "Mortal_A");
-    create_process(proceso_mortal, 10, "Mortal_B");
-    create_process(proceso_mortal, 10, "Mortal_C");
+    create_process((void(*)(void*))proceso_mortal, nullptr, 10, "Mortal_A");
+    create_process((void(*)(void*))proceso_mortal, nullptr, 10, "Mortal_B");
+    create_process((void(*)(void*))proceso_mortal, nullptr, 10, "Mortal_C");
 }
 
 /**
@@ -119,6 +119,29 @@ void test_scheduler(void) {
     kprintf("\n[TEST] --- Probando Multitarea y Sleep ---\n");
 
     /* P1 duerme mucho, P2 duerme poco. Deberías ver muchos P2 por cada P1 */
-    create_process(proceso_1, 20, "Lento");
-    create_process(proceso_2, 10, "Rapido");
+    create_process((void(*)(void*))proceso_1, nullptr, 20, "Lento");
+    create_process((void(*)(void*))proceso_2, nullptr, 10, "Rapido");
+}
+
+void user_task() {
+    char *msg = "\n[USER] Hola desde EL0! Soy un proceso restringido.\n";
+
+    /* Syscall Write (0) manual */
+    asm volatile(
+        "mov x8, #0\n"
+        "mov x19, %0\n"
+        "svc #0\n"
+        : : "r"(msg) : "x8", "x19"
+    );
+
+    /* Bucle para probar multitarea */
+    for(int i=0; i<10000000; i++) asm volatile("nop");
+
+    /* Syscall Exit (1) manual */
+    asm volatile(
+        "mov x8, #1\n"
+        "mov x19, #0\n" /* Exit code 0 */
+        "svc #0\n"
+        : : : "x8", "x19"
+    );
 }

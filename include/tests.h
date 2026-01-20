@@ -41,4 +41,6 @@ void test_processes(void);
  */
 void test_scheduler(void);
 
+void user_task();
+
 #endif //TESTS_H

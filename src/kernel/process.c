@@ -45,6 +45,8 @@ extern void enable_interrupts(void);
 /* Punto de entrada para nuevos procesos (src/entry.S) */
 extern void ret_from_fork(void);
 
+extern void move_to_user_mode(unsigned long pc, unsigned long sp);
+
 /* ========================================================================== */
 /* CREACION DE PROCESOS                                                      */
 /* ========================================================================== */
@@ -56,7 +58,7 @@ extern void ret_from_fork(void);
  * @param name Nombre descriptivo del proceso (máx. 15 chars)
  * @return PID del proceso creado, -1 en caso de error
  */
-long create_process(void (*fn)(void), int priority, const char *name) {
+long create_process(void (*fn)(void*), void *arg, int priority, const char *name) {
     int pid = -1;
 
     /* 1. Buscar hueco libre (Reciclable) */
@@ -101,6 +103,7 @@ long create_process(void (*fn)(void), int priority, const char *name) {
 
     /* 4. Configurar contexto */
     p->context.x19 = (unsigned long)fn;
+    p->context.x20 = (unsigned long)arg;
     p->context.pc = (unsigned long)ret_from_fork;
     p->context.sp = (unsigned long)stack + 4096;
 
@@ -114,9 +117,9 @@ long create_process(void (*fn)(void), int priority, const char *name) {
  * * En BareMetalM4 (v0.3.5), como no hay separación de memoria virtual por proceso,
  * todos los procesos son técnicamente hilos del kernel que comparten espacio de direcciones.
  */
-long create_thread(void (*fn)(void), int priority, const char *name) {
+long create_thread(void (*fn)(void*), int priority, const char *name) {
     /* Wrapper sobre create_process para cumplir con la semántica del Tema 2 */
-    return create_process(fn, priority, name);
+    return create_process(fn, nullptr, priority, name);
 }
 
 /**
@@ -195,4 +198,29 @@ void free_zombie() {
             num_process--;
         }
     }
+}
+
+struct user_context {
+    unsigned long pc;
+    unsigned long sp;
+};
+
+void kernel_to_user_wrapper(void *arg) {
+    struct user_context *ctx = (struct user_context *)arg;
+
+    kprintf("[KERNEL] Saltando a Modo Usuario (EL0)...\n");
+    move_to_user_mode(ctx->pc, ctx->sp);
+}
+
+long create_user_process(void (*user_fn)(void), const char *name) {
+    /* 1. Stack de Usuario */
+    void *user_stack = kmalloc(4096);
+
+    /* 2. Contexto de arranque */
+    struct user_context *ctx = (struct user_context *)kmalloc(sizeof(struct user_context));
+    ctx->pc = (unsigned long)user_fn;
+    ctx->sp = (unsigned long)user_stack + 4096;
+
+    /* 3. Crear proceso Kernel que saltara a User */
+    return create_process(kernel_to_user_wrapper, ctx, 10, name);
 }
