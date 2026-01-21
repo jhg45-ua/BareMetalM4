@@ -12,7 +12,7 @@
  *   - DMB: Data Memory Barrier (sincronización de memoria)
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.3
+ * @version 0.4
  */
 
 .global spin_lock

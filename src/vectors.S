@@ -53,7 +53,7 @@
  *   - SError: System Error (errores críticos de hardware)
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.3
+ * @version 0.4
  */
 
 .global vectors

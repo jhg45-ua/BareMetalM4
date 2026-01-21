@@ -29,7 +29,7 @@
  *   - VBAR_EL1: Vector Base Address Register (tabla de excepciones)
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.3
+ * @version 0.4
  */
 
 .global put32

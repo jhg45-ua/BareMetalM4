@@ -7,7 +7,7 @@
  *   y funcionalidades básicas del kernel.
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.3
+ * @version 0.4
  */
 
 #include "../../include/tests.h"
@@ -18,17 +18,16 @@
 #include "../../include/mm/malloc.h"
 
 extern unsigned long get_sctlr_el1(void);
-
-/* Habilita las interrupciones IRQ en el procesador */
 extern void enable_interrupts(void);
 
 /**
  * @brief Ejecuta pruebas del sistema de memoria
  * 
- * Verifica:
- * - Funcionamiento de kmalloc/kfree
- * - Estado de la MMU (SCTLR_EL1)
- * - Escritura y lectura en memoria dinámica
+ * @details
+ *   Verifica:
+ *   - Funcionamiento de kmalloc/kfree
+ *   - Estado de la MMU (SCTLR_EL1)
+ *   - Escritura y lectura en memoria dinámica
  */
 void test_memory() {
     unsigned long sctlr = get_sctlr_el1();
@@ -52,6 +51,10 @@ void test_memory() {
 
 /**
  * @brief Primer proceso de usuario (multitarea expropiativa)
+ * 
+ * @details
+ *   Proceso lento que cuenta hasta 10 con sleep de 70 ticks.
+ *   Demuestra el scheduler con procesos de diferentes velocidades.
  */
 void proceso_1(void) {
     enable_interrupts();
@@ -65,6 +68,10 @@ void proceso_1(void) {
 
 /**
  * @brief Segundo proceso de usuario (multitarea expropiativa)
+ * 
+ * @details
+ *   Proceso rápido que cuenta hasta 20 con sleep de 10 ticks.
+ *   Demuestra el scheduler con procesos de diferentes velocidades.
  */
 void proceso_2(void) {
     enable_interrupts();
@@ -79,54 +86,72 @@ void proceso_2(void) {
 /**
  * @brief Tarea que cuenta hasta 3 y muere
  *
- * Este proceso demuestra la terminación de procesos.
- * Al finalizar, ret_from_fork captura el retorno y llama a exit().
+ * @details
+ *   Este proceso demuestra la terminación de procesos.
+ *   Al finalizar, ret_from_fork captura el retorno y llama a exit().
  */
 void proceso_mortal(void) {
     enable_interrupts();
 
     for (int i = 0; i < 3; i++) {
-        // kprintf("     [MORTAL] Vida restante: %d\n", 3 - i);
-        sleep(15); /* Duerme un poco */
+        sleep(15);
     }
 
-    // kprintf("     [MORTAL] Adios mundo cruel...\n");
-    /* AQUÍ OCURRE LA MAGIA:
-       Al terminar el for, la función hace 'return'.
+    /* Al terminar el for, la función hace 'return'.
        El wrapper 'ret_from_fork' captura ese retorno y llama a 'exit()'. */
 }
 
 /* ========================================================================== */
-/* LANZADORES (Lo que el Kernel llama)                                        */
+/* LANZADORES DE PRUEBAS                                                     */
 /* ========================================================================== */
 
 /**
- * @brief Lanza pruebas de creación y destrucción
+ * @brief Lanza pruebas de creación y destrucción de procesos
+ * 
+ * @details
+ *   Crea 3 procesos mortales que terminan automáticamente
+ *   para probar el ciclo de vida (zombie/exit).
  */
 void test_processes(void) {
     kprintf("\n[TEST] --- Probando Ciclo de Vida (Zombies/Exit) ---\n");
 
     /* Lanzamos 3 procesos que morirán pronto */
-    create_process((void(*)(void*))proceso_mortal, nullptr, 10, "Mortal_A");
-    create_process((void(*)(void*))proceso_mortal, nullptr, 10, "Mortal_B");
-    create_process((void(*)(void*))proceso_mortal, nullptr, 10, "Mortal_C");
+    create_process((void(*)(void*))proceso_mortal, 0, 10, "Mortal_A");
+    create_process((void(*)(void*))proceso_mortal, 0, 10, "Mortal_B");
+    create_process((void(*)(void*))proceso_mortal, 0, 10, "Mortal_C");
 }
 
 /**
  * @brief Lanza pruebas de scheduler y sleep
+ * 
+ * @details
+ *   Crea dos procesos con diferentes tiempos de sleep.
+ *   P1 duerme mucho, P2 duerme poco. Deberías ver muchos P2 por cada P1.
  */
 void test_scheduler(void) {
     kprintf("\n[TEST] --- Probando Multitarea y Sleep ---\n");
 
-    /* P1 duerme mucho, P2 duerme poco. Deberías ver muchos P2 por cada P1 */
-    create_process((void(*)(void*))proceso_1, nullptr, 20, "Lento");
-    create_process((void(*)(void*))proceso_2, nullptr, 10, "Rapido");
+    /* P1 duerme mucho, P2 duerme poco */
+    create_process((void(*)(void*))proceso_1, 0, 20, "Lento");
+    create_process((void(*)(void*))proceso_2, 0, 10, "Rapido");
 }
 
+/* ========================================================================== */
+/* PRUEBAS DE SYSCALLS Y SEGURIDAD                                           */
+/* ========================================================================== */
+
+/**
+ * @brief Proceso de usuario en EL0 que ejecuta syscalls
+ * 
+ * @details
+ *   Demuestra el uso de syscalls desde un proceso de usuario:
+ *   - SYS_WRITE para imprimir mensaje
+ *   - SYS_EXIT para terminar
+ */
 void user_task() {
     char *msg = "\n[USER] Hola desde EL0! Soy un proceso restringido.\n";
 
-    /* Syscall Write (0) manual */
+    /* Syscall Write (0) */
     asm volatile(
         "mov x8, #0\n"
         "mov x19, %0\n"
@@ -137,23 +162,30 @@ void user_task() {
     /* Bucle para probar multitarea */
     for(int i=0; i<10000000; i++) asm volatile("nop");
 
-    /* Syscall Exit (1) manual */
+    /* Syscall Exit (1) */
     asm volatile(
         "mov x8, #1\n"
-        "mov x19, #0\n" /* Exit code 0 */
+        "mov x19, #0\n"
         "svc #0\n"
         : : : "x8", "x19"
     );
 }
 
+/**
+ * @brief Proceso que intenta violar segmentación de memoria
+ * 
+ * @details
+ *   Prueba el manejo de excepciones intentando escribir en NULL.
+ *   Debería ser terminado por handle_fault() sin colapsar el sistema.
+ */
 void kamikaze_test() {
     kprintf("\n[KAMIKAZE] Soy un proceso malo. Voy a escribir en NULL...\n");
 
-    /* Intentamos escribir en la direccion 0x0 (prohibida/no mapeada o kernel) */
+    /* Intentamos escribir en la dirección 0x0 (prohibida/no mapeada) */
     int *p = (int *)0x0;
     *p = 1234;
 
-    kprintf(("[KAMIKAZE] Si lees esto, la seguridad ha fallado"));
+    kprintf("[KAMIKAZE] Si lees esto, la seguridad ha fallado\n");
 
     /* Salida normal (no deberíamos llegar aquí) */
     asm volatile("mov x8, #1; mov x19, #0; svc #0");

@@ -15,7 +15,7 @@
  *   3. PENALIZACION: Aumentar priority del seleccionado para evitar monopolio
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.3
+ * @version 0.4
  */
 
 #include "../../include/sched.h"

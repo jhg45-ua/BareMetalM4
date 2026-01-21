@@ -43,7 +43,7 @@
  *   - Eventos (condition variables como en pthreads)
  * 
  * @author Sistema Operativo Educativo
- * @version 0.3
+ * @version 0.4
  * @see semaphore.h para interfaz publica
  */
 

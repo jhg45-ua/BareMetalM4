@@ -9,7 +9,7 @@
  *   - Process Control Blocks (PCB)
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.3.5
+ * @version 0.4
  */
 
 #include "../../include/sched.h"
@@ -114,12 +114,12 @@ long create_process(void (*fn)(void*), void *arg, int priority, const char *name
 
 /**
  * @brief Crea un Hilo del Kernel (Kernel Thread)
- * * En BareMetalM4 (v0.3.5), como no hay separación de memoria virtual por proceso,
+ * * En BareMetalM4 (v0.4), como no hay separación de memoria virtual por proceso,
  * todos los procesos son técnicamente hilos del kernel que comparten espacio de direcciones.
  */
 long create_thread(void (*fn)(void*), int priority, const char *name) {
     /* Wrapper sobre create_process para cumplir con la semántica del Tema 2 */
-    return create_process(fn, nullptr, priority, name);
+    return create_process(fn, 0, priority, name);
 }
 
 /**

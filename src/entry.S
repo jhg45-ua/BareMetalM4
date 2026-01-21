@@ -14,7 +14,7 @@
  *   preemptive multitasking.
  *
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.3
+ * @version 0.4
  */
 
 .global cpu_switch_to

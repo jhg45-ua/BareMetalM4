@@ -10,7 +10,7 @@
  *   4. Si SI somos core 0 -> configurar el stack y saltar a kernel()
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.3
+ * @version 0.4
  */
 
 .section .text

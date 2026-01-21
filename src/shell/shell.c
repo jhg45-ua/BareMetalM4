@@ -8,7 +8,7 @@
  *   - Procesos de prueba para demostrar multitarea
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.3.5
+ * @version 0.4
  */
 
 #include "../../include/sched.h"
@@ -49,7 +49,7 @@ void shell_task(void) {
     char command_buf[64];
     int idx = 0;
 
-    kprintf("\n[SHELL] Bienvenido a BareMetalM4 OS v0.3.5\n");
+    kprintf("\n[SHELL] Bienvenido a BareMetalM4 OS v0.4\n");
     kprintf("[SHELL] Escribe 'help' para ver comandos.\n");
     kprintf("> "); // Prompt
 
@@ -125,15 +125,15 @@ void shell_task(void) {
 
                 test_memory();      /* Test simple sincrono */
 
-                test_processes();   /* Lanza procesos mortales */
+                //test_processes();   /* Lanza procesos mortales */
 
                 test_scheduler();   /* Comprueba el scheduler */
             }
             else if (k_strcmp(command_buf, "test_user_mode") == 0) {
-                create_process((void(*)(void*)) user_task, nullptr, 0, "test_user_mode");
+                create_process((void(*)(void*)) user_task, 0, 0, "test_user_mode");
             }
             else if (k_strcmp(command_buf, "test_crash") == 0) {
-                create_process((void(*)(void*)) kamikaze_test, nullptr, 0, "test_user_mode");
+                create_process((void(*)(void*)) kamikaze_test, 0, 0, "test_user_mode");
             }
             else if (k_strcmp(command_buf, "clear") == 0) {
                 /* Código ANSI para limpiar terminal */

@@ -13,7 +13,7 @@
  *   - 0x40000000 - 0x7FFFFFFF: RAM del kernel (Normal memory)
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.3
+ * @version 0.4
  */
 
 #include "../../include/mm/mm.h"

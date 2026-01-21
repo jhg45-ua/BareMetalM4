@@ -6,7 +6,7 @@
  *   Implementación de funciones de utilidad general del kernel
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.3
+ * @version 0.4
  */
 
 #include "../../include/kernel/kutils.h"
