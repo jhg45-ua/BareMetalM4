@@ -4,7 +4,10 @@
  * 
  * @details
  *   Define pruebas para verificar el funcionamiento
- *   del sistema de memoria y procesos.
+ *   del sistema de memoria, procesos y sincronización.
+ * 
+ * @author Sistema Operativo Educativo BareMetalM4
+ * @version 0.4
  */
 
 #ifndef TESTS_H
@@ -27,12 +30,24 @@ void test_processes(void);
  */
 void test_scheduler(void);
 
+/**
+ * @brief Proceso de usuario en EL0 que ejecuta syscalls
+ */
 void user_task();
 
+/**
+ * @brief Proceso que intenta violar segmentación de memoria
+ */
 void kamikaze_test();
 
+/**
+ * @brief Prueba Round-Robin con proceso egoísta
+ */
 void test_quantum(void);
 
+/**
+ * @brief Prueba wait queues en semáforos
+ */
 void test_semaphores_efficiency(void);
 
 

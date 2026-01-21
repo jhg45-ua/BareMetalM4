@@ -2,8 +2,12 @@
  * @file io.h
  * @brief Interfaz para entrada/salida (UART)
  * 
- * Define funciones para escribir caracteres y cadenas a la UART
- * mapeada en memoria en 0x09000000 (QEMU virt).
+ * @details
+ *   Define funciones para escribir caracteres y cadenas a la UART
+ *   mapeada en memoria en 0x09000000 (QEMU virt).
+ * 
+ * @author Sistema Operativo Educativo BareMetalM4
+ * @version 0.4
  */
 
 #ifndef IO_H

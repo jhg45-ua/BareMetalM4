@@ -1,3 +1,17 @@
+/**
+ * @file vmm.c
+ * @brief Gestor de memoria virtual (Virtual Memory Manager)
+ * 
+ * @details
+ *   Implementa el gestor de memoria virtual del kernel:
+ *   - Mapeo de páginas virtuales a físicas
+ *   - Gestión de tablas de páginas multinivel (L1/L2/L3)
+ *   - Inicialización del subsistema VMM
+ * 
+ * @author Sistema Operativo Educativo BareMetalM4
+ * @version 0.4
+ */
+
 #include "../../include/mm/vmm.h"
 #include "../../include/mm/pmm.h"
 #include "../../include/kernel/kutils.h"

@@ -2,10 +2,14 @@
  * @file timer.h
  * @brief Interfaz para el subsistema de interrupciones y timer
  * 
- * Encabezado que define:
- * - Registros del Generic Interrupt Controller (GIC)
- * - Funciones de configuración del timer
- * - Constantes de timing
+ * @details
+ *   Encabezado que define:
+ *   - Registros del Generic Interrupt Controller (GIC)
+ *   - Funciones de configuración del timer
+ *   - Constantes de timing
+ * 
+ * @author Sistema Operativo Educativo BareMetalM4
+ * @version 0.4
  */
 
 #ifndef TIMER_H

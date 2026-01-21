@@ -1,3 +1,17 @@
+/**
+ * @file pmm.c
+ * @brief Gestor de memoria física (Physical Memory Manager)
+ * 
+ * @details
+ *   Implementa el gestor de memoria física del kernel:
+ *   - Asignación de páginas físicas mediante bitmap
+ *   - Algoritmo First-Fit para búsqueda de páginas libres
+ *   - Gestión de 128MB de RAM
+ * 
+ * @author Sistema Operativo Educativo BareMetalM4
+ * @version 0.4
+ */
+
 #include "../../include/mm/pmm.h"
 #include "../../include/kernel/kutils.h"
 #include "../../include/drivers/io.h"

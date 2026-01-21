@@ -1,6 +1,15 @@
 /**
  * @file malloc.h
  * @brief Interfaz del gestor de heap del kernel
+ * 
+ * @details
+ *   Define funciones para la gestión dinámica de memoria:
+ *   - Inicialización del heap
+ *   - Asignación de memoria (kmalloc)
+ *   - Liberación de memoria (kfree)
+ * 
+ * @author Sistema Operativo Educativo BareMetalM4
+ * @version 0.4
  */
 
 #ifndef MALLOC_H

@@ -2,11 +2,15 @@
  * @file types.h
  * @brief Definiciones de tipos de datos de tamaño fijo para ARM64
  * 
- * En ARM64:
- * - char: 8 bits
- * - short: 16 bits
- * - int: 32 bits
- * - long: 64 bits (diferente a x86 donde es 32 bits)
+ * @details
+ *   En ARM64:
+ *   - char: 8 bits
+ *   - short: 16 bits
+ *   - int: 32 bits
+ *   - long: 64 bits (diferente a x86 donde es 32 bits)
+ * 
+ * @author Sistema Operativo Educativo BareMetalM4
+ * @version 0.4
  */
 
 #ifndef TYPES_H

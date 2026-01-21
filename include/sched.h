@@ -2,12 +2,23 @@
  * @file sched.h
  * @brief Interfaz para planificación de procesos
  * 
- * Define estructuras y constantes para el manejo de procesos
- * en el sistema operativo.
+ * @details
+ *   Define estructuras y constantes para el manejo de procesos
+ *   en el sistema operativo:
+ *   - Estados de proceso (RUNNING, READY, BLOCKED, etc.)
+ *   - Process Control Block (PCB)
+ *   - Contexto de CPU para context switch
+ * 
+ * @author Sistema Operativo Educativo BareMetalM4
+ * @version 0.4
  */
 
 #ifndef SCHED_H
 #define SCHED_H
+
+/* ========================================================================== */
+/* ESTADOS DE PROCESO                                                        */
+/* ========================================================================== */
 
 /* Estados de proceso */
 #define PROCESS_UNUSED 0
@@ -16,15 +27,27 @@
 #define PROCESS_BLOCKED 3
 #define PROCESS_ZOMBIE 4
 
+/* ========================================================================== */
+/* RAZONES DE BLOQUEO                                                        */
+/* ========================================================================== */
+
 /* Razones de bloqueo (Mejora visual) */
 #define BLOCK_REASON_NONE 0
 #define BLOCK_REASON_SLEEP 1
 #define BLOCK_REASON_WAIT 2     /* Semaforos I/O */
 
+/* ========================================================================== */
+/* CONSTANTES DEL SISTEMA                                                    */
+/* ========================================================================== */
+
 /* Constantes del sistema */
 #define MAX_PROCESS 64
 #define BUFFER_SIZE 4
 #define DEFAULT_QUANTUM 5
+
+/* ========================================================================== */
+/* ESTRUCTURAS                                                               */
+/* ========================================================================== */
 
 /**
  * @brief Registros ARM64 guardados durante context switch

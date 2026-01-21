@@ -2,8 +2,12 @@
  * @file mm.h
  * @brief Interfaz para el subsistema de gestion de memoria (MMU)
  * 
- * Define funciones para configurar la MMU, tablas de paginas,
- * registros de sistema ARM64 y el TLB.
+ * @details
+ *   Define funciones para configurar la MMU, tablas de paginas,
+ *   registros de sistema ARM64 y el TLB.
+ * 
+ * @author Sistema Operativo Educativo BareMetalM4
+ * @version 0.4
  */
 
 #ifndef MM_H
