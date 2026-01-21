@@ -15,6 +15,7 @@
 #include "../../include/kernel/process.h"
 #include "../../include/kernel/shell.h"
 #include "../../include/mm/mm.h"
+#include "../../include/mm/pmm.h"
 
 /* ========================================================================== */
 /* FUNCIONES EXTERNAS                                                        */
@@ -39,6 +40,23 @@ void kernel(void) {
     kprintf("¡¡¡Hola desde BareMetalM4!!!\n");
     kprintf("Sistema Operativo iniciando...\n");
     kprintf("Planificador por Prioridades\n");
+
+    /* test PMM */
+    /* Inicializamos el PMM en una zona segura de RAM */
+    /* Asumimos que el Kernel está en 0x40000000 y ocupa poco.
+       Empezamos a gestionar memoria libre a partir de 0x42000000 */
+    pmm_init(0x42000000, 128 * 1024 * 1024);
+
+    kprintf("--- Test PMM ---\n");
+    unsigned long p1 = get_free_page();
+    unsigned long p2 = get_free_page();
+    kprintf("Pagina 1: 0x%lx\n", p1);
+    kprintf("Pagina 2: 0x%lx\n", p2);
+
+    /* Deberían ser consecutivas (separadas por 4096 bytes) */
+    if (p2 == p1 + 4096) kprintf("Test PMM: OK\n");
+    else kprintf("Test PMM: FALLO\n");
+    /* ============== */
 
     /* 1. Inicializar Memoria (MMU y Heap) */
     init_memory_system();
