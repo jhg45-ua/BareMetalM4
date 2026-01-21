@@ -8,9 +8,13 @@
 #ifndef SEMAPHORE_H
 #define SEMAPHORE_H
 
+#include "sched.h"
+
 /* Semaforo binario/contador para sincronizacion */
 struct semaphore {
     volatile int count;  /* count > 0: disponible, count = 0: bloqueado */
+    struct pcb *head;
+    struct pcb *tail;
 };
 
 /* Inicializa semaforo con valor inicial */

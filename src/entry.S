@@ -124,14 +124,27 @@ enable_interrupts:
 /**
  * irq_handler_stub - Punto de entrada para interrupciones IRQ
  *
- * Guarda todo el contexto (x0-x30, ELR, SPSR), llama a handle_timer_irq()
+ * Guarda el contexto (x0-x30, ELR, SPSR), llama a handle_timer_irq()
  * en C y restaura el contexto (posiblemente de otro proceso si schedule()
  * realizó cambio de contexto).
  */
 irq_handler_stub:
-    kernel_entry            // Macro: Guarda todo
-    bl handle_timer_irq     // Llama a C
-    kernel_exit             // Macro: Restaura y hace ERET
+    kernel_entry            // 1. Guardar contexto completo
+
+    bl handle_timer_irq     // 2. Llamar al timer en C (actualiza quantum y bandera)
+
+    /* --- NUEVA LÓGICA DE EXPROPIACIÓN (PREEMPTION) --- */
+    /* Preguntamos a C si hay que cambiar: if (need_reschedule) */
+    bl is_reschedule_pending
+
+    /* El resultado viene en x0. Si es 0, saltamos a la salida */
+    cbz w0, no_reschedule
+
+    /* Si x0 es 1, llamamos al scheduler */
+    bl schedule             // schedule() hará el context switch si es necesario
+
+no_reschedule:
+    kernel_exit             // 3. Restaurar contexto y volver (ERET)
 
 /**
  * ret_from_fork - Punto de entrada para nuevos procesos
@@ -145,6 +158,9 @@ irq_handler_stub:
  */
 ret_from_fork:
     bl schedule_tail
+
+    /* Reactivar interrupciones obligatoriamente para procesos nuevos */
+    bl enable_interrupts
 
     mov x0, x20
 

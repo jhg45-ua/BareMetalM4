@@ -24,6 +24,7 @@
 /* Constantes del sistema */
 #define MAX_PROCESS 64
 #define BUFFER_SIZE 4
+#define DEFAULT_QUANTUM 5
 
 /**
  * @brief Registros ARM64 guardados durante context switch
@@ -60,6 +61,9 @@ struct pcb {
     unsigned long cpu_time;     /* Contador de tiempo de cpu */
     int block_reason;           /* Razon de bloqueo */
     int exit_code;              /* Valor de retorno al morir */
+
+    int quantum;
+    struct pcb *next;
 };
 
 #endif // SCHED_H

@@ -55,7 +55,7 @@ void shell_task(void) {
 
     while (1) {
         /* 1. Intentamos leer una tecla */
-        char c = uart_getc_nonblocking();
+        const char c = uart_getc_nonblocking();
 
         if (c == 0) {
             /* Si no hay tecla, dormimos un poco para no quemar CPU */
@@ -78,13 +78,15 @@ void shell_task(void) {
                 kprintf("  test               - Ejecutando test de memoria, procesos y scheduler\n");
                 kprintf("  test_user_mode     - Ejecuta test del modo usuario\n");
                 kprintf("  test_crash         - Ejecuta test de proteccion de memoria basica\n");
+                kprintf("  test_rr            - Ejecuta test de nuevo scheduler con Round-Robin y Quantum\n");
+                kprintf("  test_sem           - Ejecuta test de Wait Queues en semaforos\n");
                 kprintf("  clear              - Limpia la pantalla\n");
                 kprintf("  panic              - Provoca un Kernel Panic\n");
                 kprintf("  poweroff           - Apaga el sistema\n");
             } 
             else if (k_strcmp(command_buf, "ps") == 0) {
-                kprintf("\nPID | Prio | State | Time | Name\n");
-                kprintf("----|------|-------|------|------\n");
+                kprintf("\nPID   | Prio   |  State  |   Time   | Name\n");
+                kprintf("------|--------|---------|----------|------\n");
                 for(int i = 0; i < MAX_PROCESS; i++) {
                     /* 1. Si el hueco está VACÍO (0), no lo mostramos */
                     if (process[i].state == PROCESS_UNUSED) {
@@ -111,7 +113,7 @@ void shell_task(void) {
                         default:              estado_str = "????"; break;
                     }
 
-                    kprintf(" %d  |  %d   | %s  | %d  | %s\n",
+                    kprintf(" %d    |  %d    | %s    | %d      | %s\n",
                             process[i].pid,
                             process[i].priority,
                             estado_str,
@@ -130,10 +132,16 @@ void shell_task(void) {
                 test_scheduler();   /* Comprueba el scheduler */
             }
             else if (k_strcmp(command_buf, "test_user_mode") == 0) {
-                create_process((void(*)(void*)) user_task, 0, 0, "test_user_mode");
+                create_process((void(*)(void*)) user_task, nullptr, 0, "test_user_mode");
             }
             else if (k_strcmp(command_buf, "test_crash") == 0) {
-                create_process((void(*)(void*)) kamikaze_test, 0, 0, "test_user_mode");
+                create_process((void(*)(void*)) kamikaze_test, nullptr, 0, "test_user_mode");
+            }
+            else if (k_strcmp(command_buf, "test_rr") == 0) {
+                test_quantum();
+            }
+            else if (k_strcmp(command_buf, "test_sem") == 0) {
+                test_semaphores_efficiency();
             }
             else if (k_strcmp(command_buf, "clear") == 0) {
                 /* Código ANSI para limpiar terminal */

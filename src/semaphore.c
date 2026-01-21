@@ -49,9 +49,11 @@
 
 #include "../include/semaphore.h"
 
+#include "../include/drivers/timer.h"
+#include "../include/kernel/process.h"
+
 extern void spin_lock(volatile int *lock);
 extern void spin_unlock(volatile int *lock);
-extern void schedule(void);
 
 /* Spinlock global para proteger operaciones de semaforo */
 volatile int sem_lock = 0;
@@ -67,6 +69,8 @@ volatile int sem_lock = 0;
  */
 void sem_init(struct semaphore *s, int value) {
     s->count = value;
+    s->head = nullptr;
+    s->tail = nullptr;
 }
 
 /**
@@ -76,17 +80,37 @@ void sem_init(struct semaphore *s, int value) {
  * Decrementa el contador. Si es 0, espera activamente cediendo CPU.
  */
 void sem_wait(struct semaphore *s) {
-    while (1) {
-        spin_lock(&sem_lock);
+    /* 1. Proteger el acceso al semaforo */
+    spin_lock(&sem_lock);
 
-        if (s->count > 0) {
-            s->count--;
-            spin_unlock(&sem_lock);
-            return;
-        }
-
+    if (s->count > 0) {
+        /* Caso A: Semaforo libre. Pasamos directo */
+        s->count--;
         spin_unlock(&sem_lock);
+    } else {
+        /* Caso B: Semaforo ocupado. Dormimos */
+        /* Nos añadimos a la cola (Lista enlazada) */
+        if (s->tail == nullptr) {
+            s->head = current_process;
+            s->tail = current_process;
+        } else {
+            s->tail->next = current_process; /* El ultimo apunta a nosotros */
+            s->tail = current_process;       /* Ahora somos el último */
+        }
+        current_process->next = nullptr; /* Nosotros no apuntamos a nadie aún */
+
+        /* Cambiamos estado a BLOQUEADO */
+        current_process->state = PROCESS_BLOCKED;
+        current_process->block_reason = BLOCK_REASON_WAIT;
+
+        /* Liberamos el cerrojo ANTES de dormirnos (muy importante) */
+        spin_unlock(&sem_lock);
+
+        /* Cedemos la CPU. Como estamos BLOCKED, el scheduler no nos elegirá
+           hasta que alguien nos despierte en sem_signal */
         schedule();
+
+        enable_interrupts();
     }
 }
 
@@ -98,6 +122,27 @@ void sem_wait(struct semaphore *s) {
  */
 void sem_signal(struct semaphore *s) {
     spin_lock(&sem_lock);
-    s->count++;
+
+    if (s->head != nullptr) {
+        /* Caso A: Hay alguien durmiendo. Lo despertamos */
+        struct pcb *proceso_dormido = s->head;
+
+        /* Avanzamos la cola (sacamos el primero) */
+        s->head = proceso_dormido->next;
+        if (s->head == nullptr) {
+            s->tail = nullptr;
+        }
+
+        /* Lo despertamos: Ahora es elegible por el scheduler */
+        proceso_dormido->state = PROCESS_READY;
+        proceso_dormido->block_reason = BLOCK_REASON_NONE;
+        proceso_dormido->next = nullptr;
+
+        /* NOTA: No incrementamos s->count. Le pasamos el "turno"
+           directamente al proceso que acabamos de despertar. */
+    } else {
+        /* CASO B: Nadie espera. Simplemente subimos el contador. */
+        s->count++;
+    }
     spin_unlock(&sem_lock);
 }

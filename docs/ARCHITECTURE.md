@@ -391,7 +391,7 @@ kfree(buffer);
 
 ---
 
-#### 8. **kernel_main** (Inicialización)
+#### 8. **kernel** (Inicialización)
 **Archivo**: `src/kernel/kernel.c`
 
 **Responsabilidad**: Punto de entrada e inicialización del sistema

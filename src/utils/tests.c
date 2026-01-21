@@ -16,6 +16,7 @@
 #include "../../include/kernel/kutils.h"
 #include "../../include/kernel/process.h"
 #include "../../include/mm/malloc.h"
+#include "../../include/semaphore.h"
 
 extern unsigned long get_sctlr_el1(void);
 extern void enable_interrupts(void);
@@ -189,4 +190,59 @@ void kamikaze_test() {
 
     /* Salida normal (no deberíamos llegar aquí) */
     asm volatile("mov x8, #1; mov x19, #0; svc #0");
+}
+
+void tarea_egoista(void) {
+    kprintf("   [EGO] Soy el PID %d y entro en bucle infinito SIN sleep...\n", current_process->pid);
+    kprintf("   [EGO] Intenta usar el Shell mientras yo corro. Si puedes el quantum funciona!!!!\n");
+
+    /* Bucle infinito sucio. Sin quantum, esto mata el SO */
+    volatile unsigned long i = 0;
+    while (1) {
+        i++;
+        /* No llamamos a sleep() ni a nada que ceda la CPU */
+    }
+}
+
+void test_quantum(void) {
+    kprintf("\n[TEST] --- Probando Round-Robin (Preemption) ---\n");
+    /* Pasamos NULL al argumento si ya arreglaste create_process */
+    create_process((void(*)(void*))tarea_egoista, (void*)0, 10, "Egoista");
+}
+
+struct semaphore sem_prueba;
+
+void tarea_holder(void) {
+    kprintf("   [HOLDER] Tomando semaforo y durmiendo 5 segundos...\n");
+    sem_wait(&sem_prueba);
+
+    sleep(500);
+
+    kprintf("   [HOLDER] Liberando semaforo\n");
+    sem_signal(&sem_prueba);
+}
+
+
+void tarea_waiter(void) {
+    kprintf("   [WAITER] Intentando tomar semaforo (deberia bloquearme)...\n");
+
+    /* Aquí debería bloquearse y NO consumir CPU */
+    sem_wait(&sem_prueba);
+
+    kprintf("   [WAITER] ¡Conseguido! He despertado.\n");
+    sem_signal(&sem_prueba);
+}
+
+void test_semaphores_efficiency(void) {
+    kprintf("\n[TEST] --- Probando Wait Queues (Eficiencia) ---\n");
+
+    /* Inicializamos semáforo a 1 */
+    sem_init(&sem_prueba, 1);
+
+    /* Lanzamos al que tiene el candado */
+    create_process((void(*)(void*))tarea_holder, (void*)0, 10, "Holder");
+
+    /* Lanzamos al que espera. Dale menos prioridad o lánzalo un pelín después */
+    /* Nota: Si lanzamos al waiter inmediatamente, aseguramos que se bloquee */
+    create_process((void(*)(void*))tarea_waiter, (void*)0, 10, "Waiter");
 }

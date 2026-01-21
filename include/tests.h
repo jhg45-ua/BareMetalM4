@@ -16,20 +16,6 @@
  * Verifica el funcionamiento de kmalloc/kfree y la MMU.
  */
 void test_memory();
-/**
- * @brief Primer proceso de usuario (multitarea expropiativa)
- */
-void proceso_1(void);
-
-/**
- * @brief Segundo proceso de usuario (multitarea expropiativa)
- */
-void proceso_2(void);
-
-/**
- * @brief Tarea que cuenta hasta 3 y muere
- */
-void proceso_mortal(void);
 
 /**
  * @brief Lanza pruebas de creación y destrucción
@@ -44,6 +30,10 @@ void test_scheduler(void);
 void user_task();
 
 void kamikaze_test();
+
+void test_quantum(void);
+
+void test_semaphores_efficiency(void);
 
 
 #endif //TESTS_H

@@ -29,6 +29,14 @@
 /* Context switch entre dos procesos (src/entry.S) */
 extern void cpu_switch_to(struct pcb *prev, struct pcb *next);
 
+extern void enable_interrupts(void);
+
+volatile int need_reschedule = 0;
+
+int is_reschedule_pending () {
+    return need_reschedule;
+}
+
 /* ========================================================================== */
 /* SCHEDULER - ALGORITMO DE PRIORIDADES CON AGING                           */
 /* ========================================================================== */
@@ -40,6 +48,8 @@ extern void cpu_switch_to(struct pcb *prev, struct pcb *next);
  * El proceso con menor valor de priority tiene mayor prioridad de ejecución.
  */
 void schedule(void) {
+    need_reschedule = 0;
+
     /* 1. Fase de Envejecimiento */
     for (int i = 0; i < MAX_PROCESS; i++) {
         if (process[i].state == PROCESS_READY && i != current_process->pid) {
@@ -81,6 +91,10 @@ void schedule(void) {
         next->priority += 2;
     }
 
+    if (next->pid > 0) {
+        next->quantum = DEFAULT_QUANTUM;
+    }
+
     if (prev != next) {
         if (prev->state == PROCESS_RUNNING) prev->state = PROCESS_READY;
         next->state = PROCESS_RUNNING;
@@ -109,6 +123,25 @@ void timer_tick(void) {
 
     if (current_process->state == PROCESS_RUNNING) {
         current_process->cpu_time++;
+
+        /* Logica Round-Robin */
+        /* Si no es el kernel (PID 0), le restamos vida */
+        if (current_process->pid > 0) {
+            current_process->quantum--;
+
+            /* Se acabó el tiempo para el proceso */
+            if (current_process->quantum <= 0) {
+                // kprintf("[SCHED] PID %d agoto su quantum. Expropiando...\n", current_process->pid);
+
+                /* Forzamos el cambio de contexto AHORA MISMO.
+                   Como estamos dentro de una interrupción (IRQ),
+                   al volver de schedule() seguiremos en el handler
+                   y luego haremos kernel_exit normalmente. */
+                // schedule();
+                /* CAMBIO: NO llamamos a schedule(). Solo levantamos la mano. */
+                need_reschedule = 1;
+            }
+        }
     }
 
     for (int i = 0; i < MAX_PROCESS; i++) {
@@ -137,4 +170,6 @@ void sleep(unsigned int ticks) {
     current_process->state = PROCESS_BLOCKED;
     current_process->block_reason = BLOCK_REASON_SLEEP;
     schedule();
+
+    enable_interrupts();
 }
