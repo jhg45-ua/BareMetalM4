@@ -17,75 +17,44 @@
  */
 
 #include "../../include/mm/mm.h"
+#include "../../include/mm/vmm.h"
+#include "../../include/mm/pmm.h"
 #include "../../include/mm/malloc.h"
 #include "../../include/drivers/io.h"
 #include "../../include/types.h"
 
 /* ========================================================================== */
-/* CONSTANTES DE MEMORIA (MAIR_EL1)                                         */
+/* CONSTANTES MAIR Y TCR                                                      */
 /* ========================================================================== */
 
-/* Tipos de memoria */
-#define MT_DEVICE_nGnRnE 0x00  /* Device: sin cache, sin reordenamiento */
-#define MT_NORMAL_NC     0x44  /* Normal sin cache */
-#define MT_NORMAL        0xFF  /* Normal con cache */
-
-/* Registro MAIR: 3 tipos en índices 0, 1 y 2 */
 #define MAIR_VALUE \
-    (0x00UL << (0 * 8)) | \
-    (0x44UL << (1 * 8)) | \
-    (0xFFUL << (2 * 8))
+(0x00UL << (0 * 8)) | \
+(0x44UL << (1 * 8)) | \
+(0xFFUL << (2 * 8))
 
-/* ========================================================================== */
-/* CONFIGURACION DE TRADUCCION (TCR_EL1)                                    */
-/* ========================================================================== */
-
-/* T0SZ = 25 -> 39 bits de espacio virtual (512 GB)
-   Con 39 bits, la traduccion empieza en NIVEL 1 (bloques de 1GB) */
 #define TCR_T0SZ        (64 - 39)
 #define TCR_T1SZ        (64 - 39)
-#define TCR_TG0_4K      (0UL << 14)  /* Granularidad 4 KB */
+#define TCR_TG0_4K      (0UL << 14)
 #define TCR_TG1_4K      (2UL << 30)
-
-/* --- FLAGS CRÍTICOS PARA EVITAR HANGS --- */
-/* Inner Shareable (IS) y Write-Back (WB) Cacheable */
-/* Esto asegura que la MMU vea lo que la CPU escribe en la caché */
 #define TCR_SH_IS       (3UL << 12) | (3UL << 28)
 #define TCR_ORGN_WB     (1UL << 10) | (1UL << 26)
 #define TCR_IRGN_WB     (1UL << 8)  | (1UL << 24)
 
 #define TCR_VALUE       (TCR_T0SZ | TCR_T1SZ | TCR_TG0_4K | TCR_TG1_4K | \
-                         TCR_SH_IS | TCR_ORGN_WB | TCR_IRGN_WB)
+TCR_SH_IS | TCR_ORGN_WB | TCR_IRGN_WB)
 
 /* ========================================================================== */
-/* DESCRIPTORES DE TABLA                                                     */
+/* BANDERAS DE MAPEO PARA MAP_PAGE                                          */
 /* ========================================================================== */
 
-#define PT_BLOCK     0x1        /* Entrada de bloque (mapeo directo) */
-#define PT_AF        (1UL<<10)  /* Access Flag */
-#define PT_ISH       (3UL<<8)   /* Inner Shareable */
+/* Flags = Shareable + Read/Write + Kernel Mode + Índice MAIR */
+#define FLAGS_NORMAL (MM_SH | MM_RW | MM_KERNEL | (ATTR_NORMAL << 2))
+#define FLAGS_DEVICE (MM_SH | MM_RW | MM_KERNEL | (ATTR_DEVICE << 2))
+
+extern char _end; /* Símbolo del linker donde termina el kernel */
 
 /* ========================================================================== */
-/* ATRIBUTOS DE MEMORIA                                                      */
-/* ========================================================================== */
-
-/* RAM: Bloque + AF + ISH + indice MAIR 2 (Normal con cache) */
-#define MM_NORMAL    (PT_BLOCK | PT_AF | PT_ISH | (2UL << 2) | (0UL << 50))
-
-/* Perifericos: Bloque + AF + ISH + indice MAIR 0 (Device) */
-#define MM_DEVICE    (PT_BLOCK | PT_AF | PT_ISH | (0UL << 2) | (0UL << 50))
-
-/* ========================================================================== */
-/* TABLA DE PAGINAS L1                                                       */
-/* ========================================================================== */
-
-/* Tabla L1: 512 entradas, cada una cubre 1 GB (total 512 GB) */
-uint64_t page_table_l1[512] __attribute__((aligned(4096)));
-
-extern char _end;
-
-/* ========================================================================== */
-/* INICIALIZACION DE LA MMU                                                  */
+/* INICIALIZACION DE LA MMU (NUEVA VERSION VMM)                             */
 /* ========================================================================== */
 
 /**
@@ -97,53 +66,41 @@ extern char _end;
  * 3. Configurar registros (MAIR, TCR, TTBR)
  * 4. Activar MMU y caches
  */
-void mem_init() {
-    kprintf("   [MMU] Inicializando Tablas (Coherencia Activada)...\n");
+void mem_init(unsigned long heap_start, unsigned long heap_size) {
+    kprintf("   [MMU] Mapeando Kernel y Perifericos con paginas de 4KB...\n");
 
-    /* ====================================================================== */
-    /* 1. LIMPIAR TABLA                                                      */
-    /* ====================================================================== */
+    /* 1. Mapear Periféricos (UART y Controlador de Interrupciones) */
+    map_page(kernel_pgd, 0x09000000, 0x09000000, FLAGS_DEVICE); /* UART */
+    map_page(kernel_pgd, 0x08000000, 0x08000000, FLAGS_DEVICE); /* GIC Distrib */
+    map_page(kernel_pgd, 0x08010000, 0x08010000, FLAGS_DEVICE); /* GIC CPU IF */
 
-    for (int i = 0; i < 512; i++) {
-        page_table_l1[i] = 0;
+    /* 2. Mapear TODA la RAM (Identity mapping 1:1) */
+    /* QEMU virt nos da 128MB de RAM empezando en 0x40000000 */
+    unsigned long start_ram = 0x40000000;
+    unsigned long total_ram_size = 128 * 1024 * 1024; /* 128MB */
+    unsigned long end_ram = start_ram + total_ram_size;
+
+    for (unsigned long addr = start_ram; addr < end_ram; addr += PAGE_SIZE) {
+        map_page(kernel_pgd, addr, addr, FLAGS_NORMAL);
     }
 
-    /* ====================================================================== */
-    /* 2. MAPEAR MEMORIA (IDENTITY MAPPING)                                 */
-    /* ====================================================================== */
-    
-    /* ENTRADA 0: [0x00000000 - 0x3FFFFFFF] (1 GB)
-       Perifericos: UART (0x09000000), GIC (0x08000000) */
-    page_table_l1[0] = 0x00000000UL | MM_DEVICE;
-
-    /* ENTRADA 1: [0x40000000 - 0x7FFFFFFF] (1 GB)
-       RAM del kernel: codigo, stack, datos */
-    page_table_l1[1] = 0x40000000UL | MM_NORMAL;
-
-    /* ====================================================================== */
-    /* 3. CONFIGURAR REGISTROS                                               */
-    /* ====================================================================== */
-
+    /* 3. Configurar Registros con la nueva tabla MAESTRA (kernel_pgd) */
     set_mair_el1(MAIR_VALUE);
     set_tcr_el1(TCR_VALUE);
-    set_ttbr0_el1((unsigned long)page_table_l1);
-    set_ttbr1_el1((unsigned long)page_table_l1);
+    set_ttbr0_el1((unsigned long)kernel_pgd);
+    set_ttbr1_el1((unsigned long)kernel_pgd);
 
-    /* ====================================================================== */
-    /* 4. ACTIVAR MMU Y CACHES                                               */
-    /* ====================================================================== */
-
-    kprintf("   [MMU] Activando Traduccion...\n");
-
+    /* 4. Activar MMU y Caches */
+    kprintf("   [MMU] Activando Traduccion Avanzada...\n");
     unsigned long sctlr = get_sctlr_el1();
     sctlr |= 1;       /* M: MMU Enable */
     sctlr |= (1<<2);  /* C: D-Cache Enable */
     sctlr |= (1<<12); /* I: I-Cache Enable */
-    
+
     set_sctlr_el1(sctlr);
     tlb_invalidate_all();
 
-    kprintf("   [MMU] Sistema estable y organizado.\n");
+    kprintf("   [MMU] Sistema estable en modo 39-bits/4KB.\n");
 }
 
 /**
@@ -154,18 +111,23 @@ void mem_init() {
  * 2. Heap del kernel (gestor de memoria dinámica)
  */
 void init_memory_system() {
-    /* 1. Inicializar MMU (Paginacion) */
-    mem_init();
-
-
-    /* 2. Iniciar HEAP (Malloc) */
-    /* El Heap empieza justo donde acaba el kernel */
     unsigned long heap_start = (unsigned long)&_end;
+    unsigned long heap_size  = 64 * 1024 * 1024; /* 64MB para Heap */
+    unsigned long mem_total  = 128 * 1024 * 1024; /* 128MB RAM QEMU */
 
-    /* Definimos tamaño del HEAP (64MB) */
-    unsigned long heap_size = 64 * 1024 * 1024;
+    /* El PMM gestionará la memoria libre que queda DESPUÉS del Heap */
+    unsigned long pmm_start = heap_start + heap_size;
+    unsigned long pmm_size  = mem_total - (pmm_start - 0x40000000);
 
+    /* 1. Iniciar estructuras */
+    pmm_init(pmm_start, pmm_size);
+    init_vmm(); /* Limpia el kernel_pgd */
+
+    /* 2. Mapear y Activar MMU */
+    mem_init(heap_start, heap_size);
+
+    /* 3. Iniciar HEAP ya con la MMU encendida */
     kheap_init(heap_start, heap_start + heap_size);
 
-    kprintf("   [MEM] Subsistema de memoria (MMU + Heap) listo.\n");
+    kprintf("   [MEM] Subsistema de memoria (PMM + VMM + MMU + Heap) listo.\n");
 }

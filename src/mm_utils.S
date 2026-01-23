@@ -38,6 +38,7 @@ get_mair_el1:
 /* Escribe el registro MAIR_EL1 */
 set_mair_el1:
     msr MAIR_EL1, x0
+    isb
     ret
 
 /* ========================================================================== */
@@ -52,6 +53,7 @@ get_tcr_el1:
 /* Escribe el registro TCR_EL1 (T0SZ, TG0, granularidad, etc.) */
 set_tcr_el1:
     msr TCR_EL1, x0
+    isb
     ret
 
 /* ========================================================================== */
@@ -66,6 +68,7 @@ get_ttbr0_el1:
 /* Escribe TTBR0_EL1 (debe estar alineado a 4KB) */
 set_ttbr0_el1:
     msr TTBR0_EL1, x0
+    isb
     ret
 
 /* Lee TTBR1_EL1 (tabla de paginas para direcciones altas 0xFFFF...) */
@@ -76,6 +79,7 @@ get_ttbr1_el1:
 /* Escribe TTBR1_EL1 */
 set_ttbr1_el1:
     msr TTBR1_EL1, x0
+    isb
     ret
 
 /* ========================================================================== */
@@ -107,6 +111,7 @@ get_sctlr_el1:
  */
 set_sctlr_el1:
     msr SCTLR_EL1, x0
+    isb
     ret
 
 /* ========================================================================== */

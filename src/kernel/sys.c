@@ -19,7 +19,9 @@
 #include "../../include/kernel/sys.h"
 #include "../../include/drivers/io.h"
 #include "../../include/kernel/process.h"
-#include "../../include/kernel/kutils.h"
+#include "../../include/mm/vmm.h"
+#include "../../include/mm/pmm.h"
+#include "../../include/mm/mm.h"
 
 /* ========================================================================== */
 /* IMPLEMENTACION DE SYSCALLS                                                */
@@ -94,7 +96,47 @@ void syscall_handler(struct pt_regs *regs, int syscall) {
  *   Termina el proceso culpable en lugar de colgar el sistema.
  */
 void handle_fault(void) {
-    kprintf("\n[CPU] CRITICAL: Excepcion no controlada (Segmentation Fault)!\n");
-    kprintf("[CPU] Matando al proceso actual por violacion de segmento.\n");
+    unsigned long far, esr;
+
+    /* 1. Leer registros del procesador
+       FAR_EL1 (Fault Address Register): Qué dirección provocó el fallo
+       ESR_EL1 (Exception Syndrome Register): Por qué ocurrió (lectura, escritura, etc.) */
+    asm volatile("mrs %0, far_el1" : "=r"(far));
+    asm volatile("mrs %0, esr_el1" : "=r"(esr));
+
+    /* Extraer la clase de excepción (EC - bits 31:26 del ESR) */
+    unsigned long ec = esr >> 26;
+
+    /* EC = 0x24 (Data Abort en Kernel) o 0x25 (Data Abort en Usuario) */
+    if (ec == 0x24 || ec == 0x25) {
+        kprintf("\n[MMU] Page Fault (Falta de Pagina) en dir: 0x%x\n", far);
+
+        /* 2. Asignar una página física libre del PMM */
+        unsigned long phys_page = get_free_page();
+        if (phys_page) {
+            kprintf("      -> Resolviendo: Paginacion por Demanda (Fisica: 0x%x)\n", phys_page);
+
+            /* Alinear la dirección virtual al inicio de la página (múltiplo de 4KB) */
+            unsigned long virt_aligned = far & ~(PAGE_SIZE - 1);
+
+            /* Configurar permisos: Si el fallo vino de EL0 (Usuario), damos permisos de usuario */
+            unsigned long flags = (ec == 0x25) ? (MM_RW | MM_USER | MM_SH | (ATTR_NORMAL << 2))
+                                               : (MM_RW | MM_KERNEL | MM_SH | (ATTR_NORMAL << 2));
+
+            /* 3. Mapear en la tabla de páginas L3 */
+            map_page(kernel_pgd, virt_aligned, phys_page, flags);
+
+            /* 4. Invalidar TLB para que la MMU vea la nueva traducción */
+            tlb_invalidate_all();
+
+            /* ÉXITO: Al hacer 'return', la CPU reintentará la instrucción y funcionará */
+            return;
+        } else {
+            kprintf("[PMM] CRITICAL: Out of Memory. Imposible resolver Page Fault.\n");
+        }
+    }
+
+    /* Si llegamos aquí, fue un acceso inválido o no queda RAM */
+    kprintf("\n[CPU] Violacion de Segmento (Segmentation Fault) en 0x%x. Matando proceso.\n", far);
     exit();
 }

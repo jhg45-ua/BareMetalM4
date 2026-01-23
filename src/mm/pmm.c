@@ -38,7 +38,7 @@ void pmm_init(unsigned long start, unsigned long size) {
     /* Inicializamos enteramente a 0 (Libre) */
     memset(mem_map, 0, sizeof(mem_map));
 
-    kprintf("[PMM] Gestionando %d MB de RAM fisica desde 0x%lx\n",
+    kprintf("[PMM] Gestionando %d MB de RAM fisica desde 0x%x\n",
             MEMORY_SIZE / (1024*1024), phys_mem_start);
 }
 

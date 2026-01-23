@@ -205,17 +205,16 @@ el0_irq:
     b irq_handler_stub
 
 error_invalid:
-    /* Guardamos estado y llamamos al limpiador */
+    /* 1. Guardamos el estado completo de la CPU (x0-x30, SPSR, ELR) */
     kernel_entry
 
-    /* Opcional: Podríamos leer ESR_EL1 para decir por qué falló,
-       pero por ahora asumimos fallo general */
+    /* 2. Llamamos al gestor de memoria en C.
+          Si es un Page Fault recuperable, lo arreglará.
+          Si es un Segmentation Fault real, llamará a exit() y no volverá. */
+    bl handle_fault
 
-    bl handle_fault  /* Llama a C para matar el proceso */
-
-    /* Si handle_fault llama a exit(), nunca volveremos aquí.
-       Pero si volviera, nos aseguramos de no romper nada. */
-    b .
+    /* 3. Restauramos el estado y volvemos a intentar la instrucción que falló */
+    kernel_exit
 
 /* ========================================================== */
 /* TRANSICIÓN A MODO USUARIO                                  */

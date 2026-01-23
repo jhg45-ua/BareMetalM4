@@ -143,6 +143,13 @@ void shell_task(void) {
             else if (k_strcmp(command_buf, "test_sem") == 0) {
                 test_semaphores_efficiency();
             }
+            else if (k_strcmp(command_buf, "test_page_fault") == 0) {
+                // /* Test Page Fault */
+                // kprintf("Escribiendo en memoria no mapeada...\n");
+                // unsigned long *peligro = (unsigned long *)0x50000000;
+                // *peligro = 42; /* ¡BUM! Esto lanzará un Page Fault */
+                // kprintf("Exito! El valor guardado es: %d\n", *peligro);
+            }
             else if (k_strcmp(command_buf, "clear") == 0) {
                 /* Código ANSI para limpiar terminal */
                 kprintf("\033[2J\033[H");

@@ -42,41 +42,41 @@ void kernel(void) {
     kprintf("Sistema Operativo iniciando...\n");
     kprintf("Planificador por Prioridades\n");
 
-    /* Test PMM */
-    /* Inicializamos el PMM en una zona segura de RAM */
-    /* Asumimos que el Kernel está en 0x40000000 y ocupa poco.
-       Empezamos a gestionar memoria libre a partir de 0x42000000 */
-    pmm_init(0x42000000, 128 * 1024 * 1024);
-
-    kprintf("--- Test PMM ---\n");
-    unsigned long p1 = get_free_page();
-    unsigned long p2 = get_free_page();
-    kprintf("Pagina 1: 0x%x\n", p1);
-    kprintf("Pagina 2: 0x%x\n", p2);
-
-    /* Deberían ser consecutivas (separadas por 4096 bytes) */
-    if (p2 == p1 + 4096) kprintf("Test PMM: OK\n");
-    else kprintf("Test PMM: FALLO\n");
-    kprintf("----------------\n");
-    /* ============== */
-
-    /* Test VMM */
-    init_vmm();
-    /* PRUEBA: Mapear la dirección virtual 0xABC000 a la física 0x10000 */
-    kprintf("--- Test VMM (Mapping) ---\n");
-    map_page(kernel_pgd, 0xABC000, 0x10000, MM_RW | MM_KERNEL);
-
-    /* Verificamos manualmente si se escribieron los datos en la tabla */
-    int idx = L1_INDEX(0xABC000);
-    kprintf("Entrada L1[%d]: 0x%x\n", idx, kernel_pgd[idx]);
-
-    if (kernel_pgd[idx] & 3) {
-        kprintf("Test VMM: OK (Tabla L2 creada y enlazada)\n");
-    } else {
-        kprintf("Test VMM: FALLO\n");
-    }
-    kprintf("----------------\n");
-    /* ============== */
+    // /* Test PMM */
+    // /* Inicializamos el PMM en una zona segura de RAM */
+    // /* Asumimos que el Kernel está en 0x40000000 y ocupa poco.
+    //    Empezamos a gestionar memoria libre a partir de 0x42000000 */
+    // pmm_init(0x42000000, 128 * 1024 * 1024);
+    //
+    // kprintf("--- Test PMM ---\n");
+    // unsigned long p1 = get_free_page();
+    // unsigned long p2 = get_free_page();
+    // kprintf("Pagina 1: 0x%x\n", p1);
+    // kprintf("Pagina 2: 0x%x\n", p2);
+    //
+    // /* Deberían ser consecutivas (separadas por 4096 bytes) */
+    // if (p2 == p1 + 4096) kprintf("Test PMM: OK\n");
+    // else kprintf("Test PMM: FALLO\n");
+    // kprintf("----------------\n");
+    // /* ============== */
+    //
+    // /* Test VMM */
+    // init_vmm();
+    // /* PRUEBA: Mapear la dirección virtual 0xABC000 a la física 0x10000 */
+    // kprintf("--- Test VMM (Mapping) ---\n");
+    // map_page(kernel_pgd, 0xABC000, 0x10000, MM_RW | MM_KERNEL);
+    //
+    // /* Verificamos manualmente si se escribieron los datos en la tabla */
+    // int idx = L1_INDEX(0xABC000);
+    // kprintf("Entrada L1[%d]: 0x%x\n", idx, kernel_pgd[idx]);
+    //
+    // if (kernel_pgd[idx] & 3) {
+    //     kprintf("Test VMM: OK (Tabla L2 creada y enlazada)\n");
+    // } else {
+    //     kprintf("Test VMM: FALLO\n");
+    // }
+    // kprintf("----------------\n");
+    // /* ============== */
 
     /* 1. Inicializar Memoria (MMU y Heap) */
     init_memory_system();

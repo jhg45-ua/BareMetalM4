@@ -44,7 +44,7 @@ extern void tlb_invalidate_all(void);
  * Configura tablas de páginas, mapea perifericos y RAM,
  * y activa la MMU con cachés.
  */
-void mem_init(void);
+void mem_init(unsigned long heap_start, unsigned long heap_size);
 
 /**
  * @brief Inicializa el subsistema de gestión de memoria

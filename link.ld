@@ -28,7 +28,7 @@ SECTIONS {
   . = ALIGN(0x1000);
   /* Reserva de stack */
   .stack (NOLOAD) : {
-    . = . + 0x1000; /* 4KB */
+    . = . + 0x4000; /* 16KB */
     _stack_top = .;
   } :data
 
