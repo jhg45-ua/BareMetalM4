@@ -246,3 +246,12 @@ void test_semaphores_efficiency(void) {
     /* Nota: Si lanzamos al waiter inmediatamente, aseguramos que se bloquee */
     create_process((void(*)(void*))tarea_waiter, (void*)0, 10, "Waiter");
 }
+
+void test_demand(void) {
+    /* Test Page Fault */
+    kprintf("Escribiendo en memoria no mapeada...\n");
+    unsigned long *peligro = (unsigned long *)0x50000000;
+    *peligro = 42; /* ¡BUM! Esto lanzará un Page Fault */
+    kprintf("Exito! El valor guardado es: %d\n", *peligro);
+}
+

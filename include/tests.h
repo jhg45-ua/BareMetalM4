@@ -50,5 +50,6 @@ void test_quantum(void);
  */
 void test_semaphores_efficiency(void);
 
+void test_demand(void);
 
 #endif //TESTS_H
