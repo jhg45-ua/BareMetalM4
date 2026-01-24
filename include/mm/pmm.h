@@ -6,6 +6,7 @@
  *   Define funciones para gestionar páginas físicas de memoria:
  *   - Inicialización del PMM
  *   - Asignación y liberación de páginas físicas
+ *   - Integración con Demand Paging (get_free_page llamado por handle_fault)
  * 
  * @author Sistema Operativo Educativo BareMetalM4
  * @version 0.4
@@ -36,6 +37,14 @@ void pmm_init(unsigned long mem_start, unsigned long mem_size);
 /**
  * @brief Busca y reserva una página física libre
  * @return Dirección física de la página (o 0 si no hay memoria)
+ * 
+ * @details
+ *   Asigna una página física de 4KB mediante First-Fit.
+ *   Realiza security zeroing antes de devolverla.
+ *   
+ *   INTEGRACION CON DEMAND PAGING:
+ *   Invocado por handle_fault() cuando ocurre un Page Fault
+ *   y se necesita asignar memoria bajo demanda.
  */
 unsigned long get_free_page(void);
 

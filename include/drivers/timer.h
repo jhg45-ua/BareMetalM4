@@ -7,6 +7,8 @@
  *   - Registros del Generic Interrupt Controller (GIC)
  *   - Funciones de configuración del timer
  *   - Constantes de timing
+ *   - Integración con Round-Robin: El timer genera interrupciones
+ *     periódicas que decrementan el quantum de los procesos
  * 
  * @author Sistema Operativo Educativo BareMetalM4
  * @version 0.4
@@ -76,10 +78,24 @@ extern void schedule(void);
 /* FUNCIONES PUBLICAS                                                        */
 /* ========================================================================== */
 
-/* Inicializa el sistema de interrupciones y timer */
+/**
+ * @brief Inicializa el sistema de interrupciones y timer
+ * 
+ * @details
+ *   Configura el GIC, el timer ARM64 y habilita las IRQs.
+ *   El timer genera interrupciones periódicas que son fundamentales
+ *   para el Round-Robin Scheduler con quantum.
+ */
 void timer_init(void);
 
-/* Manejador de la interrupcion del timer */
+/**
+ * @brief Manejador de la interrupción del timer
+ * 
+ * @details
+ *   Función invocada cada ~104ms por el GIC (ID 30).
+ *   Llama a timer_tick() para actualizar quantum y luego
+ *   a schedule() para ejecutar el planificador Round-Robin.
+ */
 void handle_timer_irq(void);
 
 #endif // TIMER_H

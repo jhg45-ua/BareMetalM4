@@ -7,6 +7,8 @@
  *   - Inicializar el Generic Interrupt Controller (GIC)
  *   - Configurar el timer fisico ARM64
  *   - Manejar las interrupciones del timer (multitarea expropiativa)
+ *   - Integración con Round-Robin Scheduler: cada tick decrementa
+ *     el quantum de los procesos mediante timer_tick() en scheduler.c
  * 
  * @section GIC_INITIALIZATION
  *   El GIC es el controlador de interrupciones del sistema:
@@ -89,7 +91,19 @@ void timer_init() {
     enable_interrupts();
 }
 
-/* Maneja una interrupcion del timer (se ejecuta cada ~104ms) */
+/**
+ * @brief Maneja una interrupcion del timer (se ejecuta cada ~104ms)
+ * 
+ * @details
+ *   Flujo de manejo de la interrupción:
+ *   1. Lee GICC_IAR para obtener el ID de la interrupción
+ *   2. Escribe GICC_EOIR para avisar al GIC que terminamos
+ *   3. Recarga el contador del timer (TIMER_INTERVAL)
+ *   4. Llama a timer_tick() que:
+ *      - Decrementa el quantum del proceso actual
+ *      - Marca need_reschedule=1 si el quantum llega a 0
+ *   5. Llama a schedule() que ejecuta el Round-Robin scheduler
+ */
 void handle_timer_irq() {
     /* Leer Interrupt Acknowledge Register */
     uint32_t iar = *GICC_IAR;

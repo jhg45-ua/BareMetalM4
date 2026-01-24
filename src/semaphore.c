@@ -1,50 +1,55 @@
 /**
  * @file semaphore.c
- * @brief Implementacion de semaforos para sincronizacion entre procesos
+ * @brief Implementación de semáforos con Wait Queues (NO busy-wait)
  * 
  * @details
- *   SEMAFOROS EN ESTE KERNEL:
+ *   SEMÁFOROS CON WAIT QUEUES:
  * 
- *   Implementacion "simplificada" del semaforo de Dijkstra.
- *   No usa colas de espera (wait queues como en kernels reales).
- *   En su lugar, usa busy-waiting con schedule() para ceder CPU.
+ *   Esta implementación usa wait queues reales, eliminando el busy-waiting
+ *   de versiones anteriores. Los procesos bloqueados NO consumen CPU.
  * 
- *   SEMANTICA CLASSICA (Dijkstra):
+ *   SEMÁNTICA CLÁSICA (Dijkstra):
  *   @code
- *   P(s):  // Entrada a seccion critica (wait)
- *       while (s.count == 0) doNothing();  // Esperar
- *       s.count--;
+ *   P(s):  // Entrada a sección crítica (wait)
+ *       if (s.count > 0) {
+ *           s.count--;
+ *       } else {
+ *           block_process();       // Dormir en wait queue
+ *           wait_for_signal();     // Despertar cuando otro haga V()
+ *       }
  * 
- *   V(s):  // Salida de seccion critica (signal)
- *       s.count++;
+ *   V(s):  // Salida de sección crítica (signal)
+ *       if (wait_queue_not_empty) {
+ *           wake_up_first_waiter(); // Despertar primer proceso en cola
+ *       } else {
+ *           s.count++;              // Nadie espera, incrementar contador
+ *       }
  *   @endcode
  * 
- *   PROTECCION CONTRA RACE CONDITIONS:
- *   - spin_lock() adquiere un spinlock atomico (LDXR/STXR)
- *   - Solo un proceso puede modificar count simultaneamente
+ *   WAIT QUEUE (Cola de Espera):
+ *   - Lista enlazada de procesos bloqueados (usando campo 'next' del PCB)
+ *   - FIFO: Primero en bloquear, primero en despertar (fairness)
+ *   - Procesos en estado BLOCKED no aparecen en schedule()
  * 
- *   BUSY-WAITING EN LUGAR DE WAIT QUEUES:
- *   - Esperar en un bucle (while) y ceder CPU con schedule()
- *   - Cuando otro proceso hace V() (signal), simplemente retorna
- *   - No hay mecanismo para "despertar" (wake) explicitamente
- *   
- *   VENTAJAS:
- *   - Implementacion MUY simple (3 funciones de 1-5 lineas)
- *   - Facil de entender para estudiantes
+ *   PROTECCIÓN CONTRA RACE CONDITIONS:
+ *   - spin_lock() adquiere un spinlock atómico (LDXR/STXR en ARM64)
+ *   - Solo un proceso puede modificar el semáforo simultáneamente
+ *   - Se libera el spinlock ANTES de dormir (evita deadlock)
  * 
- *   DESVENTAJAS (comparado con un kernel real):
- *   - CPU se desperdicia revisando continuamente
- *   - Sin condition variables para coordinacion eficiente
- *   - Scaling pobre (muchos procesos esperando = perdida de tiempo)
- *   
- *   KERNELS REALES USAN:
- *   - Wait queues (procesos duermen, no consumen CPU)
- *   - Explicit wake-up (V() activa un waiter)
- *   - Eventos (condition variables como en pthreads)
+ *   VENTAJAS vs BUSY-WAIT:
+ *   - ✅ Procesos bloqueados NO consumen CPU
+ *   - ✅ Despertar explícito (eficiente)
+ *   - ✅ Escalabilidad: Muchos procesos esperando sin overhead
+ *   - ✅ Similar a kernels reales (Linux, FreeBSD)
  * 
- * @author Sistema Operativo Educativo
+ *   DESVENTAJAS DEL BUSY-WAIT (versión antigua):
+ *   - ❌ CPU se desperdicia revisando continuamente
+ *   - ❌ Scaling pobre (muchos procesos = pérdida de tiempo)
+ *   - ❌ Solo para sistemas simples/educativos
+ * 
+ * @author Sistema Operativo Educativo BareMetalM4
  * @version 0.4
- * @see semaphore.h para interfaz publica
+ * @see semaphore.h para interfaz pública
  */
 
 #include "../include/semaphore.h"
@@ -52,10 +57,18 @@
 #include "../include/drivers/timer.h"
 #include "../include/kernel/process.h"
 
+/* ========================================================================== */
+/* FUNCIONES EXTERNAS (Ensamblador)                                         */
+/* ========================================================================== */
+
+/* Spinlocks atómicos implementados en ARM64 assembly (locks.S) */
 extern void spin_lock(volatile int *lock);
 extern void spin_unlock(volatile int *lock);
 
-/* Spinlock global para proteger operaciones de semaforo */
+/* Habilita interrupciones IRQ */
+extern void enable_interrupts(void);
+
+/* Spinlock global para proteger operaciones de semáforo */
 volatile int sem_lock = 0;
 
 /* ========================================================================== */
@@ -77,39 +90,63 @@ void sem_init(struct semaphore *s, int value) {
  * @brief Operación P (wait) - Espera hasta que el recurso esté disponible
  * @param s Puntero al semáforo
  * 
- * Decrementa el contador. Si es 0, espera activamente cediendo CPU.
+ * @details
+ *   Implementación eficiente con wait queue:
+ *   
+ *   CASO A - Semáforo disponible (count > 0):
+ *   1. Decrementa count
+ *   2. Libera spinlock
+ *   3. Retorna inmediatamente (acceso concedido)
+ *   
+ *   CASO B - Semáforo ocupado (count = 0):
+ *   1. Añade el proceso a la wait queue (lista enlazada)
+ *   2. Marca el proceso como BLOCKED (block_reason = BLOCK_REASON_WAIT)
+ *   3. Libera el spinlock ANTES de dormir (crítico para evitar deadlock)
+ *   4. Llama a schedule() - El proceso NO consume CPU mientras espera
+ *   5. Cuando sem_signal() lo despierte, retorna (acceso concedido)
+ *   
+ *   ESTRUCTURA DE LA WAIT QUEUE:
+ *   - Lista enlazada simple usando campo 'next' del PCB
+ *   - head apunta al primero en esperar
+ *   - tail apunta al último (para inserción O(1))
+ *   - FIFO: Fairness - Primero en llegar, primero en ser atendido
  */
 void sem_wait(struct semaphore *s) {
-    /* 1. Proteger el acceso al semaforo */
+    /* 1. Adquirir spinlock para proteger el semáforo */
     spin_lock(&sem_lock);
 
     if (s->count > 0) {
-        /* Caso A: Semaforo libre. Pasamos directo */
+        /* CASO A: Semáforo libre - Acceso concedido inmediatamente */
         s->count--;
         spin_unlock(&sem_lock);
     } else {
-        /* Caso B: Semaforo ocupado. Dormimos */
-        /* Nos añadimos a la cola (Lista enlazada) */
+        /* CASO B: Semáforo ocupado - Bloquearse en wait queue */
+        
+        /* Añadir proceso actual a la cola de espera */
         if (s->tail == nullptr) {
+            /* Cola vacía: Somos el primero */
             s->head = current_process;
             s->tail = current_process;
         } else {
-            s->tail->next = current_process; /* El ultimo apunta a nosotros */
-            s->tail = current_process;       /* Ahora somos el último */
+            /* Cola no vacía: Nos añadimos al final */
+            s->tail->next = current_process;
+            s->tail = current_process;
         }
-        current_process->next = nullptr; /* Nosotros no apuntamos a nadie aún */
+        current_process->next = nullptr;
 
-        /* Cambiamos estado a BLOQUEADO */
+        /* Cambiar estado a BLOQUEADO */
         current_process->state = PROCESS_BLOCKED;
         current_process->block_reason = BLOCK_REASON_WAIT;
 
-        /* Liberamos el cerrojo ANTES de dormirnos (muy importante) */
+        /* CRÍTICO: Liberar el spinlock ANTES de dormir
+           Si no liberamos aquí, nadie más puede hacer sem_signal() -> deadlock */
         spin_unlock(&sem_lock);
 
-        /* Cedemos la CPU. Como estamos BLOCKED, el scheduler no nos elegirá
-           hasta que alguien nos despierte en sem_signal */
+        /* Ceder la CPU - El scheduler nos ignorará hasta que nos despierten
+           NO consumimos CPU mientras esperamos (NO busy-wait) */
         schedule();
 
+        /* Al despertar, habilitamos interrupciones */
         enable_interrupts();
     }
 }
@@ -118,31 +155,52 @@ void sem_wait(struct semaphore *s) {
  * @brief Operación V (signal) - Libera el recurso
  * @param s Puntero al semáforo
  * 
- * Incrementa el contador, permitiendo que otros procesos accedan.
+ * @details
+ *   Implementación eficiente con wake-up explícito:
+ *   
+ *   CASO A - Hay procesos esperando (wait queue no vacía):
+ *   1. Extrae el primer proceso de la cola (FIFO)
+ *   2. Lo marca como READY (block_reason = NONE)
+ *   3. El proceso NO incrementa count (pasa el turno directamente)
+ *   4. En el próximo schedule(), el proceso puede ejecutar
+ *   
+ *   CASO B - Nadie espera (wait queue vacía):
+ *   1. Incrementa count (el recurso queda disponible)
+ *   2. El próximo sem_wait() puede pasar directamente
+ *   
+ *   NOTA IMPORTANTE:
+ *   - NO incrementamos count cuando despertamos a alguien
+ *   - Le "pasamos el turno" directamente al proceso despertado
+ *   - Esto evita race conditions: El despertado tiene el recurso garantizado
  */
 void sem_signal(struct semaphore *s) {
     spin_lock(&sem_lock);
 
     if (s->head != nullptr) {
-        /* Caso A: Hay alguien durmiendo. Lo despertamos */
+        /* CASO A: Hay procesos esperando - Despertar el primero */
+        
+        /* Extraer el primer proceso de la cola */
         struct pcb *proceso_dormido = s->head;
 
-        /* Avanzamos la cola (sacamos el primero) */
+        /* Avanzar la cola (FIFO: Sacamos el primero) */
         s->head = proceso_dormido->next;
         if (s->head == nullptr) {
+            /* Era el último, la cola queda vacía */
             s->tail = nullptr;
         }
 
-        /* Lo despertamos: Ahora es elegible por el scheduler */
+        /* Despertar el proceso: Cambiar a READY */
         proceso_dormido->state = PROCESS_READY;
         proceso_dormido->block_reason = BLOCK_REASON_NONE;
         proceso_dormido->next = nullptr;
 
-        /* NOTA: No incrementamos s->count. Le pasamos el "turno"
-           directamente al proceso que acabamos de despertar. */
+        /* NOTA IMPORTANTE: NO incrementamos s->count
+           Le pasamos el "turno" directamente al proceso despertado
+           Esto evita race conditions: El proceso tiene acceso garantizado */
     } else {
-        /* CASO B: Nadie espera. Simplemente subimos el contador. */
+        /* CASO B: Nadie espera - Simplemente incrementar contador */
         s->count++;
     }
+    
     spin_unlock(&sem_lock);
 }

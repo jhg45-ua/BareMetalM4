@@ -7,6 +7,9 @@
  *   - Asignación de páginas físicas mediante bitmap
  *   - Algoritmo First-Fit para búsqueda de páginas libres
  *   - Gestión de 128MB de RAM
+ *   - Integración con Demand Paging: get_free_page() es invocado por
+ *     handle_fault() cuando se produce un Page Fault y se necesita
+ *     asignar una página física bajo demanda
  * 
  * @author Sistema Operativo Educativo BareMetalM4
  * @version 0.4
@@ -45,6 +48,17 @@ void pmm_init(unsigned long start, unsigned long size) {
 /**
  * @brief Busca y reserva una página física libre
  * @return Dirección física de la página (o 0 si no hay memoria)
+ * 
+ * @details
+ *   Implementa un algoritmo First-Fit sobre el bitmap:
+ *   1. Busca el primer bit en 0 (página libre)
+ *   2. Marca el bit como 1 (ocupado)
+ *   3. Calcula la dirección física real
+ *   4. Realiza security zeroing (limpia la página con 0s)
+ *   
+ *   INTEGRACION CON DEMAND PAGING:
+ *   Esta función es llamada por handle_fault() en sys.c cuando
+ *   se produce un Page Fault y se necesita asignar memoria bajo demanda.
  */
 unsigned long get_free_page(void) {
     /* Algoritmo First-Fit sobre Bitmap: Buscar el primer bit a 0 */

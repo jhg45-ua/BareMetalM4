@@ -1,18 +1,26 @@
 /**
  * @file scheduler.c
- * @brief Planificador de procesos con prioridades y aging
+ * @brief Planificador Round-Robin con Quantum y Prioridades
  * 
  * @details
- *   Implementa el scheduler del sistema operativo:
- *   - Algoritmo de prioridades con aging
- *   - Sistema de sleep/wake para procesos
- *   - Manejo de timer ticks
- * 
- * @section ALGORITMO_SCHEDULER
- *   El scheduler implementa un algoritmo de prioridades con "aging":
- *   1. ENVEJECIMIENTO: Para procesos esperando, priority--
- *   2. SELECCION: Buscar el READY con MENOR priority
- *   3. PENALIZACION: Aumentar priority del seleccionado para evitar monopolio
+ *   Implementa el scheduler híbrido del sistema operativo:
+ *   
+ *   ROUND-ROBIN CON QUANTUM (Preemptive Multitasking):
+ *   - Cada proceso recibe un quantum de tiempo (DEFAULT_QUANTUM ticks)
+ *   - El quantum se decrementa en cada timer_tick()
+ *   - Cuando quantum = 0, se marca need_reschedule para expropiar
+ *   - Previene monopolio de CPU por procesos egoístas
+ *   
+ *   PRIORIDADES CON AGING (Fairness):
+ *   - Aging: Procesos READY envejecen (priority--)
+ *   - Selección: Se elige el proceso con MENOR priority
+ *   - Penalización: El proceso seleccionado aumenta su priority
+ *   - Previene starvation de procesos de baja prioridad
+ *   
+ *   SLEEP Y WAKE-UP EFICIENTES:
+ *   - Procesos durmiendo entran en estado BLOCKED
+ *   - NO consumen CPU mientras duermen
+ *   - timer_tick() despierta procesos cuando wake_up_time llega
  * 
  * @author Sistema Operativo Educativo BareMetalM4
  * @version 0.4
@@ -31,8 +39,14 @@ extern void cpu_switch_to(struct pcb *prev, struct pcb *next);
 
 extern void enable_interrupts(void);
 
+/* Bandera global para indicar que se debe llamar a schedule()
+   Marcada cuando un proceso agota su quantum o debe ceder la CPU */
 volatile int need_reschedule = 0;
 
+/**
+ * @brief Verifica si hay un cambio de contexto pendiente
+ * @return 1 si need_reschedule está activo, 0 en caso contrario
+ */
 int is_reschedule_pending () {
     return need_reschedule;
 }
@@ -44,8 +58,29 @@ int is_reschedule_pending () {
 /**
  * @brief Planificador de procesos (Scheduler)
  * 
- * Implementa un algoritmo de prioridades con aging para evitar starvation.
- * El proceso con menor valor de priority tiene mayor prioridad de ejecución.
+ * @details
+ *   Implementa un algoritmo híbrido de scheduling:
+ *   
+ *   FASES DEL ALGORITMO:
+ *   1. ENVEJECIMIENTO (Aging):
+ *      - Todos los procesos READY (excepto el actual) envejecen
+ *      - priority-- (menor valor = mayor prioridad)
+ *      - Previene starvation
+ *   
+ *   2. SELECCIÓN:
+ *      - Busca el proceso con MENOR priority entre READY y RUNNING
+ *      - Ignora procesos BLOCKED (durmiendo o esperando semáforos)
+ *      - Si no hay nadie, el kernel (PID 0) toma el control
+ *   
+ *   3. PENALIZACIÓN:
+ *      - El proceso seleccionado aumenta su priority (+2)
+ *      - Evita que monopolice la CPU en próximas rondas
+ *      - Se le asigna un nuevo quantum completo
+ *   
+ *   4. CONTEXT SWITCH:
+ *      - Si prev != next, se cambia el contexto con cpu_switch_to()
+ *      - Guarda registros del proceso anterior
+ *      - Restaura registros del proceso siguiente
  */
 void schedule(void) {
     need_reschedule = 0;
@@ -86,11 +121,13 @@ void schedule(void) {
     struct pcb *next = &process[next_pid];
     struct pcb *prev = current_process;
 
+    /* 3. Fase de Penalización y Asignación de Quantum */
     /* Penalizar tarea seleccionada para evitar monopolio */
     if (next->priority < 10) {
         next->priority += 2;
     }
 
+    /* Asignar quantum completo (Round-Robin) */
     if (next->pid > 0) {
         next->quantum = DEFAULT_QUANTUM;
     }
@@ -105,7 +142,7 @@ void schedule(void) {
 }
 
 /* ========================================================================== */
-/* TIMER TICK: ACTUALIZACION DEL SISTEMA DE TIEMPO Y DESPERTAR PROCESOS      */
+/* TIMER TICK: ROUND-ROBIN, QUANTUM Y WAKE-UP                               */
 /* ========================================================================== */
 
 /* Contador global de ticks del sistema */
@@ -114,9 +151,24 @@ volatile unsigned long sys_timer_count = 0;
 /**
  * @brief Manejador de ticks del timer
  * 
- * Se ejecuta en cada interrupción del timer para:
- * - Incrementar el contador de ticks
- * - Despertar procesos bloqueados cuando corresponde
+ * @details
+ *   Función crítica llamada en cada interrupción del timer (IRQ).
+ *   Implementa tres funcionalidades clave:
+ *   
+ *   1. ROUND-ROBIN CON QUANTUM:
+ *      - Decrementa el quantum del proceso actual
+ *      - Si quantum llega a 0, marca need_reschedule
+ *      - El kernel_exit llamará a schedule() si need_reschedule=1
+ *      - Implementa preemptive multitasking (expropriación)
+ *   
+ *   2. CONTABILIDAD DE CPU:
+ *      - Incrementa cpu_time del proceso actual
+ *      - Incrementa sys_timer_count (reloj global del sistema)
+ *   
+ *   3. WAKE-UP DE PROCESOS DURMIENDO:
+ *      - Recorre todos los procesos BLOCKED
+ *      - Si block_reason = SLEEP y wake_up_time <= now, los despierta
+ *      - Los marca como READY para que schedule() pueda elegirlos
  */
 void timer_tick(void) {
     sys_timer_count++;
@@ -124,46 +176,65 @@ void timer_tick(void) {
     if (current_process->state == PROCESS_RUNNING) {
         current_process->cpu_time++;
 
-        /* Logica Round-Robin */
-        /* Si no es el kernel (PID 0), le restamos vida */
+        /* === ROUND-ROBIN CON QUANTUM === */
+        /* Si no es el kernel (PID 0), aplicamos quantum */
         if (current_process->pid > 0) {
             current_process->quantum--;
 
-            /* Se acabó el tiempo para el proceso */
+            /* Se acabó el quantum del proceso actual */
             if (current_process->quantum <= 0) {
-                // kprintf("[SCHED] PID %d agoto su quantum. Expropiando...\n", current_process->pid);
-
-                /* Forzamos el cambio de contexto AHORA MISMO.
-                   Como estamos dentro de una interrupción (IRQ),
-                   al volver de schedule() seguiremos en el handler
-                   y luego haremos kernel_exit normalmente. */
-                // schedule();
-                /* CAMBIO: NO llamamos a schedule(). Solo levantamos la mano. */
+                /* Marcamos que se necesita cambio de contexto
+                   NO llamamos a schedule() directamente desde aquí porque:
+                   1. Estamos dentro de un IRQ handler
+                   2. kernel_exit verificará need_reschedule y llamará a schedule()
+                   3. Esto asegura que el cambio de contexto sea seguro */
                 need_reschedule = 1;
+                
+                // kprintf("[SCHED] PID %d agotó su quantum. Marcando need_reschedule.\n", current_process->pid);
             }
         }
     }
 
+    /* === WAKE-UP DE PROCESOS DURMIENDO === */
+    /* Recorremos todos los procesos para despertar los que ya deben levantarse */
     for (int i = 0; i < MAX_PROCESS; i++) {
         if (process[i].state == PROCESS_BLOCKED) {
+            /* Solo despertamos procesos que están durmiendo (sleep) */
             if (process[i].block_reason == BLOCK_REASON_SLEEP) {
+                /* Verificamos si ya pasó su tiempo de despertar */
                 if (process[i].wake_up_time <= sys_timer_count) {
                     process[i].state = PROCESS_READY;
                     process[i].block_reason = BLOCK_REASON_NONE;
                     // kprintf(" [KERNEL] Despertando proceso %d en tick %d\n", i, sys_timer_count);    // DEBUG
                 }
             }
+            /* Nota: Los procesos BLOCKED por semáforos (BLOCK_REASON_WAIT)
+               se despiertan en sem_signal(), NO aquí */
         }
     }
 }
 
 /* ========================================================================== */
-/* SLEEP: DORMIR UN PROCESO POR TIEMPO DETERMINADO                         */
+/* SLEEP: BLOQUEO EFICIENTE (NO BUSY-WAIT)                                 */
 /* ========================================================================== */
 
 /**
  * @brief Duerme el proceso actual durante un número de ticks del timer
  * @param ticks Número de ticks del timer a dormir
+ * 
+ * @details
+ *   Implementa sleep eficiente sin busy-wait:
+ *   
+ *   1. Calcula wake_up_time = sys_timer_count + ticks
+ *   2. Marca el proceso como BLOCKED con block_reason = SLEEP
+ *   3. Llama a schedule() para ceder la CPU inmediatamente
+ *   4. El proceso NO consume CPU mientras duerme
+ *   5. timer_tick() lo despertará cuando wake_up_time llegue
+ *   
+ *   VENTAJA vs BUSY-WAIT:
+ *   - En busy-wait: El proceso sigue consumiendo CPU en un bucle
+ *   - Con BLOCKED: El scheduler lo ignora completamente
+ *   - Mucho más eficiente en sistemas con múltiples procesos
  */
 void sleep(unsigned int ticks) {
     current_process->wake_up_time = sys_timer_count + ticks;

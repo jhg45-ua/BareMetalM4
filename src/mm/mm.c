@@ -7,6 +7,8 @@
  *   - Tablas de paginas L1 (bloques de 1 GB)
  *   - Identity mapping para perifericos y RAM
  *   - Activacion de MMU y caches
+ *   - Fundamento para Demand Paging: La MMU gestiona Page Faults
+ *     que son capturados por handle_fault() en sys.c
  * 
  *   MAPA DE MEMORIA (QEMU virt):
  *   - 0x00000000 - 0x3FFFFFFF: Perifericos (Device memory)
@@ -21,24 +23,23 @@
 #include "../../include/mm/pmm.h"
 #include "../../include/mm/malloc.h"
 #include "../../include/drivers/io.h"
-#include "../../include/types.h"
 
 /* ========================================================================== */
 /* CONSTANTES MAIR Y TCR                                                      */
 /* ========================================================================== */
 
-#define MAIR_VALUE \
-(0x00UL << (0 * 8)) | \
-(0x44UL << (1 * 8)) | \
-(0xFFUL << (2 * 8))
+#define MAIR_VALUE (\
+    (0x00UL << (0 * 8)) | \
+    (0x44UL << (1 * 8)) | \
+    (0xFFUL << (2 * 8)))
 
 #define TCR_T0SZ        (64 - 39)
 #define TCR_T1SZ        (64 - 39)
 #define TCR_TG0_4K      (0UL << 14)
 #define TCR_TG1_4K      (2UL << 30)
-#define TCR_SH_IS       (3UL << 12) | (3UL << 28)
-#define TCR_ORGN_WB     (1UL << 10) | (1UL << 26)
-#define TCR_IRGN_WB     (1UL << 8)  | (1UL << 24)
+#define TCR_SH_IS       ((3UL << 12) | (3UL << 28))
+#define TCR_ORGN_WB     ((1UL << 10) | (1UL << 26))
+#define TCR_IRGN_WB     ((1UL << 8)  | (1UL << 24))
 
 #define TCR_VALUE       (TCR_T0SZ | TCR_T1SZ | TCR_TG0_4K | TCR_TG1_4K | \
 TCR_SH_IS | TCR_ORGN_WB | TCR_IRGN_WB)

@@ -6,6 +6,10 @@
  *   Implementa:
  *   - Shell interactivo con comandos del sistema
  *   - Procesos de prueba para demostrar multitarea
+ *   - Comandos de test para las nuevas características:
+ *     * test_rr: Round-Robin con quantum
+ *     * test_sem: Semáforos con wait queues
+ *     * test_page_fault: Demand paging
  * 
  * @author Sistema Operativo Educativo BareMetalM4
  * @version 0.4
@@ -36,12 +40,19 @@ extern void system_off(void);
 /**
  * @brief Tarea del shell interactivo
  * 
- * Shell con línea de comandos que soporta:
- * - help: Muestra comandos disponibles
- * - ps: Lista de procesos activos
- * - clear: Limpia la pantalla
- * - panic: Provoca un kernel panic
- * - poweroff: Apaga el sistema
+ * @details
+ *   Shell con línea de comandos que soporta:
+ *   - help: Muestra comandos disponibles
+ *   - ps: Lista de procesos activos (con estados SLEEP/WAIT)
+ *   - test_rr: Test de Round-Robin con quantum
+ *   - test_sem: Test de semáforos con wait queues
+ *   - test_page_fault: Test de demand paging
+ *   - clear: Limpia la pantalla
+ *   - panic: Provoca un kernel panic
+ *   - poweroff: Apaga el sistema
+ *   
+ *   El shell usa sleep(1) para ceder CPU eficientemente mientras
+ *   espera entrada del usuario (NO busy-wait).
  */
 void shell_task(void) {
     enable_interrupts();
@@ -80,6 +91,7 @@ void shell_task(void) {
                 kprintf("  test_crash         - Ejecuta test de proteccion de memoria basica\n");
                 kprintf("  test_rr            - Ejecuta test de nuevo scheduler con Round-Robin y Quantum\n");
                 kprintf("  test_sem           - Ejecuta test de Wait Queues en semaforos\n");
+                kprintf("  test_page_default  - Ejecuta test de demand paging\n");
                 kprintf("  clear              - Limpia la pantalla\n");
                 kprintf("  panic              - Provoca un Kernel Panic\n");
                 kprintf("  poweroff           - Apaga el sistema\n");
