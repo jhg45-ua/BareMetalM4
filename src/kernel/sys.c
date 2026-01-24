@@ -86,6 +86,16 @@ void syscall_handler(struct pt_regs *regs, int syscall) {
             sys_exit((int)regs->x19);
             break;
 
+        case SYS_OPEN:
+            kprintf("[VFS] Syscall OPEN solicitada: path='%s', mode=%d\n", (char*)regs->x0, (int)regs->x1);
+            /* sys_open((char*)regs->x0, (int)regs->x1); */
+            break;
+
+        case SYS_READ:
+            kprintf("[VFS] Syscall READ solicitada: fd=%d, size=%d\n", (int)regs->x0, (int)regs->x2);
+            /* sys_read((int)regs->x0, (char*)regs->x1, (int)regs->x2); */
+            break;
+
         default:
             kprintf("Syscall desconocida: %d\n", syscall);
             break;

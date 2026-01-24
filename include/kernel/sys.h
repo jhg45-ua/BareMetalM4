@@ -21,6 +21,8 @@
 
 #define SYS_WRITE 0  /* Escritura en consola */
 #define SYS_EXIT  1  /* Terminación de proceso */
+#define SYS_OPEN  2
+#define SYS_READ  3
 
 /* ========================================================================== */
 /* ESTRUCTURA DE REGISTROS GUARDADOS                                         */
