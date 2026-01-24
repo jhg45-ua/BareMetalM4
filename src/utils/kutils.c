@@ -9,7 +9,7 @@
  * @version 0.5
  */
 
-#include "../../include/kernel/kutils.h"
+#include "../../include/utils/kutils.h"
 #include "../../include/drivers/io.h"
 
 /* ========================================================================== */

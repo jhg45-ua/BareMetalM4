@@ -23,10 +23,10 @@
  * @version 0.5
  */
 
-#include "../../include/tests.h"
+#include "../../include/utils/tests.h"
 #include "../../include/drivers/io.h"
 #include "../../include/kernel/scheduler.h"
-#include "../../include/kernel/kutils.h"
+#include "../../include/utils/kutils.h"
 #include "../../include/kernel/process.h"
 #include "../../include/mm/malloc.h"
 #include "../../include/semaphore.h"

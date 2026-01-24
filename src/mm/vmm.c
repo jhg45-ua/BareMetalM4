@@ -28,7 +28,7 @@
 
 #include "../../include/mm/vmm.h"
 #include "../../include/mm/pmm.h"
-#include "../../include/kernel/kutils.h"
+#include "../../include/utils//kutils.h"
 #include "../../include/drivers/io.h"
 
 /**

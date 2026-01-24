@@ -19,9 +19,9 @@
 #include "../../include/drivers/io.h"
 #include "../../include/kernel/process.h"
 #include "../../include/kernel/scheduler.h"
-#include "../../include/kernel/kutils.h"
-#include "../../include/kernel/shell.h"
-#include "../../include/tests.h"
+#include "../../include/utils/kutils.h"
+#include "../../include/shell/shell.h"
+#include "../../include/utils/tests.h"
 
 /* ========================================================================== */
 /* FUNCIONES EXTERNAS                                                        */

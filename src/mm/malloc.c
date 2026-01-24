@@ -13,7 +13,7 @@
 
 #include "../../include/mm/malloc.h"
 #include "../../include/drivers/io.h"
-#include "../../include/kernel/kutils.h"
+#include "../../include/utils/kutils.h"
 
 // Algoritmo: Lista Enlazada Simple (First Fit)
 

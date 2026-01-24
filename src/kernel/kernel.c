@@ -17,7 +17,7 @@
 #include "../../include/drivers/io.h"
 #include "../../include/drivers/timer.h"
 #include "../../include/kernel/process.h"
-#include "../../include/kernel/shell.h"
+#include "../../include/shell/shell.h"
 #include "../../include/mm/mm.h"
 
 /* ========================================================================== */

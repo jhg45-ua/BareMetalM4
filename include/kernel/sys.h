@@ -37,7 +37,26 @@
  *   Los registros son guardados por sync_handler en entry.S.
  */
 struct pt_regs {
-    unsigned long x19;     /* Registros callee-saved */
+    unsigned long x0;
+    unsigned long x1;
+    unsigned long x2;
+    unsigned long x3;
+    unsigned long x4;
+    unsigned long x5;
+    unsigned long x6;
+    unsigned long x7;
+    unsigned long x8;
+    unsigned long x9;
+    unsigned long x10;
+    unsigned long x11;
+    unsigned long x12;
+    unsigned long x13;
+    unsigned long x14;
+    unsigned long x15;
+    unsigned long x16;
+    unsigned long x17;
+    unsigned long x18;
+    unsigned long x19;
     unsigned long x20;
     unsigned long x21;
     unsigned long x22;
@@ -47,10 +66,10 @@ struct pt_regs {
     unsigned long x26;
     unsigned long x27;
     unsigned long x28;
-    unsigned long fp;      /* Frame pointer (x29) */
-    unsigned long sp;      /* Stack pointer */
-    unsigned long pc;      /* Program counter */
-    unsigned long pstate;  /* Processor state */
+    unsigned long x29;      /* Frame Pointer (FP) */
+    unsigned long x30;      /* Link Register (LR) */
+    unsigned long pstate;   /* SPSR_EL1 (Estado del procesador) */
+    unsigned long pc;       /* ELR_EL1 (Program Counter / Dónde ocurrió la excepción) */
 };
 
 /* ========================================================================== */

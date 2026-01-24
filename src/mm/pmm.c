@@ -16,7 +16,7 @@
  */
 
 #include "../../include/mm/pmm.h"
-#include "../../include/kernel/kutils.h"
+#include "../../include/utils//kutils.h"
 #include "../../include/drivers/io.h"
 
 /* Gestionaremos 128MB de RAM para usuarios por ahora */
