@@ -41,7 +41,7 @@
 [↑ Volver a Tabla de Contenidos](#-tabla-de-contenidos)
 
 El kernel está organizado en **módulos especializados** siguiendo el principio de **separación de responsabilidades**. 
-Esta refactorización (Enero 2026) dividió el código monolítico original en componentes bien definidos.
+Esta refactorización (enero 2026) dividió el código monolítico original en componentes bien definidos.
 
 **Contenido de esta sección:**
 - [Organización de Directorios](#organización-de-directorios)
@@ -130,10 +130,10 @@ BareMetalM4/
 | `mm_utils.S` | ~150   | Configuración MMU, registros SCTLR/TCR/TTBR             |
 
 #### Kernel Core (.c)
-| Archivo       | Líneas | Descripción                                                       |
-|---------------|--------|-------------------------------------------------------------------|
-| `kernel.c`    | ~200   | Inicialización del sistema, loop principal WFI                    |
-| `process.c`   | ~280   | PCB management, create_process, create_user_process               |
+| Archivo       | Líneas | Descripción                                                      |
+|---------------|--------|------------------------------------------------------------------|
+| `kernel.c`    | ~200   | Inicialización del sistema, loop principal WFI                   |
+| `process.c`   | ~280   | PCB management, create_process, create_user_process              |
 | `scheduler.c` | ~200   | Round-Robin + Aging + Quantum (v0.5), schedule(), timer_tick()   |
 | `sys.c`       | ~205   | Syscall dispatcher, Demand Paging handler (v0.5), handle_fault() |
 
@@ -152,12 +152,12 @@ BareMetalM4/
 | `malloc.c` | ~250   | kmalloc/kfree, heap dinámico, lista enlazada, coalescing         |
 
 #### User Interface & Tests (.c)
-| Archivo       | Líneas | Descripción                                                       |
-|---------------|--------|-------------------------------------------------------------------|
-| `shell.c`     | ~280   | Shell con 11 comandos (v0.5: +test_rr, +test_sem, +test_demand)  |
-| `tests.c`     | ~250   | user_task (EL0), kamikaze_test, demand_test, semaphore tests     |
-| `kutils.c`    | ~100   | panic, delay, strcmp, strncpy, memset, memcpy                     |
-| `semaphore.c` | ~150   | sem_init, sem_wait, sem_signal con Wait Queues (v0.5)            |
+| Archivo       | Líneas | Descripción                                                     |
+|---------------|--------|-----------------------------------------------------------------|
+| `shell.c`     | ~280   | Shell con 11 comandos (v0.5: +test_rr, +test_sem, +test_demand) |
+| `tests.c`     | ~250   | user_task (EL0), kamikaze_test, demand_test, semaphore tests    |
+| `kutils.c`    | ~100   | panic, delay, strcmp, strncpy, memset, memcpy                   |
+| `semaphore.c` | ~150   | sem_init, sem_wait, sem_signal con Wait Queues (v0.5)           |
 
 **Total de líneas de código**: ~3,000 líneas (sin comentarios y espacios en blanco)
 **Total bruto**: ~4,300 líneas (incluyendo documentación)
@@ -474,7 +474,7 @@ void kernel() {
 [↑ Volver a Tabla de Contenidos](#-tabla-de-contenidos)
 
 **Contenido de esta sección:**
-- [1. Boot y Inicialización (`boot.S`)](#1-boot-y-inicialización-boots)
+- [1. Boot y Inicialización (`boot.S`)](#1-boot-e-inicialización-boots)
 - [2. Núcleo del Kernel (Módulos)](#2-núcleo-del-kernel-módulos)
 - [3. Conmutación de Contexto (`entry.S`)](#3-conmutación-de-contexto-entrys)
 - [4. Planificador (Scheduler)](#4-planificador-scheduler)
@@ -484,7 +484,7 @@ void kernel() {
 - [8. Protección de Memoria y Manejo de Fallos](#8-protección-de-memoria-y-manejo-de-fallos)
 - [9. Demand Paging y Gestión de Page Faults (v0.5)](#9-demand-paging-y-gestión-de-page-faults-v05)
 
-### 1. **Boot y Inicialización** (`boot.S`)
+### 1. **Boot e Inicialización** (`boot.S`)
 ```
 ┌─────────────────────────────┐
 │  Reset / Entrada HW         │
@@ -1398,7 +1398,7 @@ void handle_fault(void) {
 - [Flujo del Demand Paging (8 Pasos)](#flujo-del-demand-paging-8-pasos)
 - [Código Simplificado](#código-simplificado)
 - [Integración con el Subsistema de Memoria](#integración-con-el-subsistema-de-memoria)
-- [Esquema de Traducción Multinivel (L1/L2/L3)](#esquema-de-traducción-multinivel-l1l2l3)
+- [Esquema de Traducción Multilevel (L1/L2/L3)](#esquema-de-traducción-multilevel-l1l2l3)
 - [Tipos de Descriptores](#tipos-de-descriptores)
 - [Registros Clave del Sistema](#registros-clave-del-sistema)
 - [Estructura de Bloques](#estructura-de-bloques)
@@ -1630,7 +1630,7 @@ El demand paging conecta tres componentes clave:
 
 ### Arquitectura de la MMU ARM64
 
-#### Esquema de Traducción Multinivel (L1/L2/L3)
+#### Esquema de Traducción Multilevel (L1/L2/L3)
 
 BareMetalM4 v0.5 implementa un esquema completo de paginación de 3 niveles:
 
@@ -1782,7 +1782,7 @@ mem_init() - Secuencia de activación:
 
 ### Translation Lookaside Buffer (TLB)
 
-El **TLB** es una cache que almacena traducciones recientes:
+El **TLB** es una caché que almacena traducciones recientes:
 
 ```
 ACCESO A MEMORIA:
@@ -1964,20 +1964,20 @@ void *stack = kmalloc(4096);  // 4KB de pila
 
 ### Limitaciones y Mejoras Futuras
 
-| Limitación Actual                     | Estado en v0.5                              | Mejora Futura                            |
-|---------------------------------------|---------------------------------------------|------------------------------------------|
-| **Protección entre procesos**         | ❌ Todos comparten espacio virtual          | Tablas de páginas por proceso (TTBR0)   |
-| **Paginación dinámica**               | ✅ **Implementado con Demand Paging**       | Completado en v0.5                       |
-| **Swapping a disco**                  | ❌ Sin soporte de disco                     | Sistema de archivos + swap partition     |
-| **Copy-on-Write (COW)**               | ❌ No implementado                          | Para fork() eficiente                    |
-| **Estadísticas de memoria**           | ❌ Sin tracking                             | Contadores de uso RAM/páginas            |
-| **Validación de rangos**              | ❌ No verifica límites heap/stack           | Implementar límites por proceso          |
-| **Asignador first-fit**               | ⚠️ Funcional pero no óptimo                 | Migrar a best-fit o slab allocator       |
-| **Tablas L1/L2/L3**                   | ✅ **Implementado multinivel**              | Completado en v0.5                       |
-| **Gestión física separada**           | ✅ **PMM con bitmap implementado**          | Completado en v0.5                       |
+| Limitación Actual             | Estado en v0.5                       | Mejora Futura                         |
+|-------------------------------|--------------------------------------|---------------------------------------|
+| **Protección entre procesos** | ❌ Todos comparten espacio virtual    | Tablas de páginas por proceso (TTBR0) |
+| **Paginación dinámica**       | ✅ **Implementado con Demand Paging** | Completado en v0.5                    |
+| **Swapping a disco**          | ❌ Sin soporte de disco               | Sistema de archivos + swap partition  |
+| **Copy-on-Write (COW)**       | ❌ No implementado                    | Para fork() eficiente                 |
+| **Estadísticas de memoria**   | ❌ Sin tracking                       | Contadores de uso RAM/páginas         |
+| **Validación de rangos**      | ❌ No verifica límites heap/stack     | Implementar límites por proceso       |
+| **Asignador first-fit**       | ⚠️ Funcional pero no óptimo          | Migrar a best-fit o slab allocator    |
+| **Tablas L1/L2/L3**           | ✅ **Implementado multinivel**        | Completado en v0.5                    |
+| **Gestión física separada**   | ✅ **PMM con bitmap implementado**    | Completado en v0.5                    |
 
 **Progreso v0.4 → v0.5**:
-- ✅ Paginación multinivel (L1/L2/L3)
+- ✅ Paginación multilevel (L1/L2/L3)
 - ✅ Physical Memory Manager (PMM)
 - ✅ Virtual Memory Manager (VMM)
 - ✅ Demand Paging con page fault handler
@@ -2253,7 +2253,7 @@ El envejecimiento garantiza que **todos los procesos eventualmente ejecutan** (p
 
 Mecanismo para que un proceso se bloquee **temporalmente** (a diferencia de semáforos que se bloquean indefinidamente).
 
-#### Comparación: delay() vs sleep()
+#### Comparación: delay() vs. sleep()
 
 | Aspecto            | delay()                  | sleep()                      |
 |--------------------|--------------------------|------------------------------|
@@ -2655,7 +2655,7 @@ void proceso_1() {
 
 **Última actualización**: Enero 25, 2026  
 **Versión**: 0.5  
-**Refactorización**: Estructura modular, sistema de memoria dinámica, documentación completa y estandarización de código implementados (Enero 2026)
+**Refactorización**: Estructura modular, sistema de memoria dinámica, documentación completa y estandarización de código implementados (enero 2026)
 
 ---
 
