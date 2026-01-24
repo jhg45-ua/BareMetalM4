@@ -41,6 +41,13 @@ int k_strcmp(const char *s1, const char *s2);
 void k_strncpy(char *dst, const char *src, int max_len);
 
 /**
+ * @brief Calcula la longitud de una cadena de texto
+ * @param str Puntero a la cadena (terminada en '\0')
+ * @return Número de caracteres antes del terminador nulo
+ */
+int k_strlen(const char *str);
+
+/**
  * @brief Rellena un bloque de memoria con un valor
  * @param s Puntero al bloque
  * @param c Valor a escribir

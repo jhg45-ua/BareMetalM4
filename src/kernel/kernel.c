@@ -19,6 +19,7 @@
 #include "../../include/kernel/process.h"
 #include "../../include/shell/shell.h"
 #include "../../include/mm/mm.h"
+#include "../../include/fs/vfs.h"
 
 /* ========================================================================== */
 /* FUNCIONES EXTERNAS                                                        */
@@ -51,6 +52,14 @@ void kernel(void) {
 
     /* 1. Inicializar Memoria (MMU y Heap) */
     init_memory_system();
+
+    /* Inicializar el RamDisk (Robamos 1MB de memoria virtual segura) */
+    /* Usaremos una dirección arbitraria pero mapeada: 0x41000000 */
+    ramfs_init(0x41000000, 1 * 1024 * 1024); /* 1MB de Disco Virtual */
+
+    /* Crear archivos de prueba */
+    vfs_create("readme.txt");
+    vfs_create("config.sys");
 
     /* 2. Inicializar Gestión de Procesos (PID 0) */
     init_process_system();

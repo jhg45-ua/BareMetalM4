@@ -19,7 +19,9 @@ C_SRCS = $(wildcard $(SRC_DIR)/*.c) \
          $(wildcard $(SRC_DIR)/shell/*.c) \
          $(wildcard $(SRC_DIR)/utils/*.c) \
          $(wildcard $(SRC_DIR)/mm/*.c) \
-		 $(wildcard $(SRC_DIR)/drivers/*.c)
+		 $(wildcard $(SRC_DIR)/drivers/*.c) \
+		 $(wildcard $(SRC_DIR)/fs/*.c)
+
 
 # Archivos objeto (conversión automática con soporte para subdirectorios)
 ASM_OBJS = $(patsubst $(SRC_DIR)/%.S, $(BUILD_DIR)/%.o, $(ASM_SRCS))
@@ -27,7 +29,7 @@ C_OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(C_SRCS))
 OBJS = $(ASM_OBJS) $(C_OBJS)
 
 # Directorios de build necesarios
-BUILD_SUBDIRS = $(BUILD_DIR)/kernel $(BUILD_DIR)/shell $(BUILD_DIR)/utils $(BUILD_DIR)/mm $(BUILD_DIR)/drivers
+BUILD_SUBDIRS = $(BUILD_DIR)/kernel $(BUILD_DIR)/shell $(BUILD_DIR)/utils $(BUILD_DIR)/mm $(BUILD_DIR)/drivers $(BUILD_DIR)/fs
 
 # Archivos finales
 ELF = $(BUILD_DIR)/baremetalm4.elf

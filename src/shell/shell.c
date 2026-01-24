@@ -22,6 +22,7 @@
 #include "../../include/utils/kutils.h"
 #include "../../include/shell/shell.h"
 #include "../../include/utils/tests.h"
+#include "../../include/fs/vfs.h"
 
 /* ========================================================================== */
 /* FUNCIONES EXTERNAS                                                        */
@@ -86,6 +87,7 @@ void shell_task(void) {
                 kprintf("Comandos disponibles:\n");
                 kprintf("  help               - Muestra esta ayuda\n");
                 kprintf("  ps                 - Lista los procesos (simulado)\n");
+                kprintf("  ls                 - Lista los archivos del directorio raiz\n");
                 kprintf("  test               - Ejecutando test de memoria, procesos y scheduler\n");
                 kprintf("  test_user_mode     - Ejecuta test del modo usuario\n");
                 kprintf("  test_crash         - Ejecuta test de proteccion de memoria basica\n");
@@ -133,6 +135,32 @@ void shell_task(void) {
                             process[i].name);
                 }
                 kprintf("\n");
+            }
+            else if (k_strcmp(command_buf, "ls") == 0) {
+                vfs_ls();
+            }
+            else if (k_strcmp(command_buf, "cat") == 0) {
+                /* Simulamos 'cat readme.txt' */
+                int fd = vfs_open("readme.txt");
+                if (fd >= 0) {
+                    char read_buf[128];
+                    int bytes = vfs_read(fd, read_buf, 127);
+                    read_buf[bytes] = '\0'; /* Terminador de string */
+                    kprintf("\n--- Contenido de readme.txt ---\n");
+                    kprintf("%s\n", read_buf);
+                    kprintf("-------------------------------\n");
+                    // Nota: Aquí haríamos un vfs_close(fd) en un sistema real
+                }
+            }
+            else if (k_strcmp(command_buf, "write") == 0) {
+                /* Escribimos un texto en readme.txt */
+                int fd = vfs_open("readme.txt");
+                if (fd >= 0) {
+                    const char *msg = "Hola desde el Tema 5. Este fichero vive en la RAM.\n";
+                    int len = k_strlen(msg);
+                    vfs_write(fd, msg, len);
+                    kprintf("[SHELL] Escritos %d bytes en 'readme.txt'\n", len);
+                }
             }
             else if (k_strcmp(command_buf, "test") == 0) {
                 kprintf("Iniciando bateria de tests..\n");
