@@ -193,6 +193,7 @@ BareMetalM4/
 | **Variables Globales** | `process[]`, `current_process`, `num_process`         |
 | `create_process()`     | Crea nuevos threads del kernel con prioridad y nombre |
 | `exit()`               | Termina el proceso actual (estado → ZOMBIE)           |
+| `free_zombie()`        | Limpia procesos zombie y libera recursos (v0.5.1)     |
 | `schedule_tail()`      | Hook post-context-switch (futuras extensiones)        |
 
 **Estructura de Datos**:
@@ -215,6 +216,39 @@ struct pcb {
 ```
 
 **Nota**: En la versión actual, `create_process()` utiliza `kmalloc()` para asignar dinámicamente las pilas de 4KB de cada proceso, en lugar de usar un array estático.
+
+**Limpieza de Procesos Zombie (v0.5.1)**: La función `free_zombie()` realiza una limpieza exhaustiva de los procesos terminados:
+
+```c
+void free_zombie() {
+    for (cada proceso en estado ZOMBIE) {
+        /* 1. Liberar la memoria dinámica de la pila */
+        if (process[i].stack_addr != 0) {
+            kfree((void *)process[i].stack_addr);
+            process[i].stack_addr = 0;
+        }
+        
+        /* 2. Limpiar toda la estructura PCB */
+        process[i].pid = 0;
+        process[i].priority = 0;
+        process[i].cpu_time = 0;
+        process[i].wake_up_time = 0;
+        process[i].quantum = 0;
+        memset(process[i].name, 0, sizeof(process[i].name));
+        
+        /* 3. Marcar como libre para reutilización */
+        process[i].state = PROCESS_UNUSED;
+        
+        /* Nota: Si tuviera archivos abiertos, se cerrarían aquí */
+    }
+}
+```
+
+**Mejoras en v0.5.1**:
+- ✅ Prevención de memory leaks mediante `kfree()` explícito
+- ✅ Limpieza completa del PCB para evitar datos residuales
+- ✅ Reinicio de todos los campos antes de marcar como UNUSED
+- ✅ Preparado para extensiones futuras (cierre de archivos, liberación de recursos)
 
 ---
 
@@ -322,12 +356,12 @@ BareMetalM4 Shell
 
 **Responsabilidad**: Configuración de interrupciones y timer del sistema
 
-| Función                | Descripción                           |
-|------------------------|---------------------------------------|
-| `timer_init()`         | Inicializa GIC v2 y timer del sistema |
-| `handle_timer_irq()`   | Manejador de interrupciones del timer |
-| `enable_interrupts()`  | Habilita IRQs en DAIF                 |
-| `disable_interrupts()` | Deshabilita IRQs en DAIF              |
+| Función                | Descripción                                    |
+|------------------------|------------------------------------------------|
+| `timer_init()`         | Inicializa GIC v2 y timer del sistema          |
+| `handle_timer_irq()`   | Manejador de interrupciones del timer          |
+| `enable_interrupts()`  | Habilita IRQs en DAIF (limpia bit I)           |
+| `disable_interrupts()` | Deshabilita IRQs en DAIF (activa bit I)        |
 
 **Componentes GIC v2**:
 - Distribuidor: `0x08000000` - Controla qué interrupciones están activas
@@ -866,25 +900,63 @@ struct semaphore {
 ```
 P() [sem_wait]:              V() [sem_signal]:
 ────────────────────────     ─────────────────────────
+disable_interrupts()         disable_interrupts()
 spin_lock(&sem->lock)        spin_lock(&sem->lock)
                             
 Si count > 0:                 count++
     count--                   
     spin_unlock()             Si wait_head != NULL:
-    return                        Sacar proceso de Wait Queue
-Sino:                             proceso->state = READY
-    // NUEVO v0.5: Wait Queue  spin_unlock()
+    enable_interrupts()           Sacar proceso de Wait Queue
+    return                        proceso->state = READY
+Sino:                         spin_unlock()
+    // NUEVO v0.5: Wait Queue  enable_interrupts()
     Agregar proceso actual     
     a Wait Queue (FIFO)       Efecto: Despierta primer proceso
     proceso->state = BLOCKED   en espera (FIFO)
     proceso->block_reason = 
         BLOCK_REASON_WAIT
     spin_unlock()
+    enable_interrupts()
     schedule()  // Cede CPU
     
 Efecto: Proceso duerme hasta 
 que sem_signal() lo despierte
 ```
+
+**MEJORA CRÍTICA: Protección contra Race Conditions del Timer**
+
+A partir de enero 2026, los semáforos implementan **deshabilitación de interrupciones** durante las operaciones críticas:
+
+```
+¿Por qué deshabilitar interrupciones?
+────────────────────────────────────
+SIN disable_interrupts():
+1. Proceso A ejecuta sem_wait()
+2. Obtiene spinlock
+3. Timer IRQ interrumpe → schedule()
+4. Proceso B intenta sem_wait()
+5. Spinlock ocupado → Deadlock
+
+CON disable_interrupts():
+1. Proceso A ejecuta sem_wait()
+2. Deshabilita IRQs → Timer no puede interrumpir
+3. Obtiene spinlock
+4. Modifica semáforo
+5. Libera spinlock
+6. Habilita IRQs → Timer puede interrumpir
+7. Si es necesario, llama schedule()
+```
+
+**Implementación**:
+- `disable_interrupts()`: Activa bit I en DAIF (enmascarar IRQs)
+- `enable_interrupts()`: Limpia bit I en DAIF (permitir IRQs)
+- Ubicación: `src/entry.S`
+
+**Beneficios**:
+- ✅ **Sin deadlocks**: Timer no interrumpe operaciones críticas
+- ✅ **Atomicidad**: Operaciones de semáforo son atómicas
+- ✅ **Seguridad**: No hay race conditions con el scheduler
+- ✅ **Simplicidad**: Patrón estándar en kernels reales
 
 **DIFERENCIA CLAVE v0.4 vs v0.5**:
 
@@ -894,6 +966,7 @@ que sem_signal() lo despierte
 | **Eficiencia** | Baja (spinning)             | Alta (sleeping)                 |
 | **Despertar**  | Detecta automáticamente     | Explícitamente despertado       |
 | **Orden**      | No garantizado              | FIFO (justo)                    |
+| **IRQ Safety** | Sin protección              | Interrupciones deshabilitadas   |
 
 **Implementación Wait Queue (v0.5)**:
 
@@ -2662,12 +2735,37 @@ void proceso_1() {
 ## Historial de Cambios
 
 **Contenido de esta sección:**
+- [v0.5.1 - Enero 24, 2026](#v051---enero-24-2026)
 - [v0.5 - Enero 25, 2026](#v05---enero-25-2026)
 - [v0.4 - Enero 21, 2026](#v04---enero-21-2026)
 - [v0.3.5 - Enero 20, 2026](#v035---enero-20-2026)
 - [v0.3 - Enero 2026](#v03---enero-2026)
 - [v0.2 - 2025](#v02---2025)
 - [v0.1 - 2025](#v01---2025)
+
+### v0.5.1 - Enero 24, 2026
+- ✅ **Mejora en Sincronización: Protección contra Race Conditions**
+  - Implementación de `disable_interrupts()` en `src/entry.S`
+  - Protección de secciones críticas en semáforos contra interrupciones del timer
+  - `sem_wait()` y `sem_signal()` ahora deshabilitan IRQs durante operaciones críticas
+  - Prevención de deadlocks causados por el timer interrumpiendo spinlocks
+  - Patrón estándar: disable_interrupts() → spinlock → operación → unlock → enable_interrupts()
+  - Mejora en la atomicidad y seguridad de las operaciones de sincronización
+
+- ✅ **Mejora en Limpieza de Procesos Zombie**
+  - Limpieza exhaustiva de la estructura PCB en `free_zombie()` (`src/kernel/process.c`)
+  - Liberación explícita de memoria dinámica de la pila con `kfree()`
+  - Reinicio de todos los campos del PCB: pid, priority, cpu_time, wake_up_time, quantum
+  - Limpieza del nombre del proceso con `memset()` para evitar datos residuales
+  - Marcado como UNUSED para permitir reutilización por `create_process()`
+  - Nota documentada para futura extensión: cierre de archivos abiertos
+  - Prevención de memory leaks y comportamiento indefinido por datos residuales
+
+- ✅ **Mejoras en Documentación**
+  - Actualización de ARCHITECTURE.md con explicación de disable_interrupts()
+  - Documentación del patrón de protección contra race conditions del timer
+  - Explicación de los cambios en la limpieza de procesos zombie
+  - Referencias a ubicaciones específicas de código (process.c:245, semaphore.c:112, entry.S)
 
 ### v0.5 - Enero 25, 2026
 - ✅ **Documentación Completa del Sistema**
