@@ -4,26 +4,29 @@
 1. [Visión General](#visión-general)
 2. [Estructura del Código](#estructura-del-código)
 3. [Componentes Principales](#componentes-principales)
-4. [Flujo de Ejecución](#flujo-de-ejecución)
-5. [Subsistema de Memoria Virtual (MMU)](#subsistema-de-memoria-virtual-mmu)
-6. [Subsistema de Planificación](#subsistema-de-planificación)
-7. [Decisiones de Diseño](#decisiones-de-diseño)
-8. [Estructura de Memoria](#estructura-de-memoria)
-9. [Limitaciones y Mejoras Futuras](#limitaciones-y-mejoras-futuras)
+4. [Subsistema de Planificación](#subsistema-de-planificación)
+5. [Decisiones de Diseño](#decisiones-de-diseño)
+6. [Estructura de Memoria](#estructura-de-memoria)
+7. [Limitaciones y Mejoras Futuras](#limitaciones-y-mejoras-futuras)
+8. [Diagrama de Componentes](#diagrama-de-componentes)
+9. [Referencias](#referencias)
+10. [Historial de Cambios](#historial-de-cambios)
 
 ---
 
 ## Visión General
 [↑ Volver a Tabla de Contenidos](#-tabla-de-contenidos)
 
-**BareMetalM4** es un kernel operativo educativo para **ARM64** (AArch64) que demuestra conceptos fundamentales de sistemas operativos:
+**BareMetalM4** es un kernel operativo educativo para **ARM64** (AArch64) que demuestra conceptos fundamentales y avanzados de sistemas operativos:
 
 - ✅ **Multitarea cooperativa y expropiatoria**
+- ✅ **Planificador Round-Robin con Quantum** (v0.5) - Preemption basada en tiempo
 - ✅ **Planificación con prioridades y envejecimiento (aging)**
 - ✅ **Manejo de interrupciones y excepciones**
-- ✅ **Sincronización: spinlocks y semáforos**
-- ✅ **Gestión de memoria virtual (MMU)**
-- ✅ **I/O a través de UART QEMU**
+- ✅ **Sincronización: spinlocks y semáforos con Wait Queues** (v0.5) - Sin busy-wait
+- ✅ **Gestión de memoria virtual (MMU) con Demand Paging** (v0.5) - Asignación bajo demanda
+- ✅ **Modo Usuario (EL0) con syscalls y protección de memoria**
+- ✅ **I/O a través de UART QEMU con interrupciones**
 
 ### Plataforma Objetivo
 - **Arquitectura**: ARM64 (ARMv8)
@@ -40,13 +43,19 @@
 El kernel está organizado en **módulos especializados** siguiendo el principio de **separación de responsabilidades**. 
 Esta refactorización (Enero 2026) dividió el código monolítico original en componentes bien definidos.
 
+**Contenido de esta sección:**
+- [Organización de Directorios](#organización-de-directorios)
+- [Descripción de Archivos Clave](#descripción-de-archivos-clave)
+- [Módulos del Kernel](#módulos-del-kernel)
+- [Ventajas de la Arquitectura Modular](#ventajas-de-la-arquitectura-modular)
+
 ### Organización de Directorios
 
 ```
 BareMetalM4/
 ├── include/                    # Headers del sistema
 │   ├── sched.h                 # Definiciones de PCB y estados de proceso
-│   ├── semaphore.h             # Primitivas de sincronización
+│   ├── semaphore.h             # Primitivas de sincronización con Wait Queues (v0.5)
 │   ├── types.h                 # Tipos básicos del sistema (uint64_t, etc.)
 │   ├── tests.h                 # Interfaz de funciones de prueba
 │   │
@@ -57,13 +66,15 @@ BareMetalM4/
 │   ├── kernel/                 # Headers de módulos del kernel
 │   │   ├── kutils.h            #   Utilidades generales (panic, delay, strcmp)
 │   │   ├── process.h           #   Gestión de procesos y threads
-│   │   ├── scheduler.h         #   Planificador con aging
+│   │   ├── scheduler.h         #   Planificador Round-Robin con Quantum (v0.5)
 │   │   ├── shell.h             #   Shell interactivo y comandos
-│   │   └── sys.h               #   Syscalls y manejo de excepciones
+│   │   └── sys.h               #   Syscalls y Demand Paging (v0.5)
 │   │
 │   └── mm/                     # Headers de gestión de memoria
 │       ├── malloc.h            #   Asignador dinámico (kmalloc/kfree)
-│       └── mm.h                #   Interfaz MMU y memoria virtual
+│       ├── mm.h                #   Interfaz MMU y memoria virtual
+│       ├── pmm.h               #   Gestor de memoria física (Physical Memory Manager)
+│       └── vmm.h               #   Gestor de memoria virtual (Virtual Memory Manager)
 │
 ├── src/                        # Código fuente
 │   ├── boot.S                  # Punto de entrada ARM64 (assembly)
@@ -72,36 +83,38 @@ BareMetalM4/
 │   ├── locks.S                 # Spinlocks con LDXR/STXR (atomic ops)
 │   ├── utils.S                 # Utilidades de sistema (registros, timer)
 │   ├── mm_utils.S              # Funciones MMU en assembly (get/set registros)
-│   ├── semaphore.c             # Implementación de semáforos
+│   ├── semaphore.c             # Implementación de semáforos con Wait Queues (v0.5)
 │   │
 │   ├── drivers/                # Controladores hardware
 │   │   ├── io.c                #   Driver UART y kprintf formateado
-│   │   └── timer.c             #   Inicialización GIC v2 y timer físico
+│   │   └── timer.c             #   Inicialización GIC v2, timer físico, tick (v0.5)
 │   │
 │   ├── kernel/                 # Módulos principales del kernel
 │   │   ├── kernel.c            #   Punto de entrada C e inicialización
 │   │   ├── process.c           #   Gestión de PCB, create_process, exit
-│   │   ├── scheduler.c         #   Algoritmo de scheduling con aging
-│   │   └── sys.c               #   Syscalls (write, exit) y handle_fault
+│   │   ├── scheduler.c         #   Round-Robin + Aging + Quantum (v0.5)
+│   │   └── sys.c               #   Syscalls (write, exit) y Demand Paging (v0.5)
 │   │
 │   ├── mm/                     # Gestión de memoria
-│   │   ├── mm.c                #   Implementación MMU, tablas de páginas
-│   │   └── malloc.c            #   Asignador dinámico (kmalloc/kfree)
+│   │   ├── mm.c                #   Configuración MMU, tablas de páginas, TLB
+│   │   ├── malloc.c            #   Asignador dinámico (kmalloc/kfree)
+│   │   ├── pmm.c               #   Gestor de páginas físicas (bitmap, get_free_page)
+│   │   └── vmm.c               #   Gestor de páginas virtuales (map_page, demand paging)
 │   │
 │   ├── shell/                  # Interfaz de usuario
-│   │   └── shell.c             #   Shell con 8 comandos (help, ps, test, clear, etc.)
+│   │   └── shell.c             #   Shell con 11 comandos (v0.5: +test_rr, +test_sem, +test_demand)
 │   │
 │   └── utils/                  # Utilidades generales
 │       ├── kutils.c            #   panic, delay, strcmp, strncpy, memcpy
-│       └── tests.c             #   Procesos de prueba (user_task, kamikaze_test)
+│       └── tests.c             #   Procesos de prueba (user_task, kamikaze_test, demand_test)
 │
 ├── docs/                       # Documentación del proyecto
 │   └── ARCHITECTURE.md         # Este documento (arquitectura completa)
 │
 └── [build artifacts]           # Generados durante compilación
-    ├── build/                  # Objetos intermedios (*.o)
-    ├── kernel8.elf             # Ejecutable ELF
-    └── kernel8.img             # Imagen binaria para QEMU
+    └── build/                  # Directorio de compilación
+        ├── *.o                 #   Objetos intermedios (.o)
+        └── baremetalm4.elf     #   Ejecutable ELF final
 ```
 
 ### Descripción de Archivos Clave
@@ -117,34 +130,38 @@ BareMetalM4/
 | `mm_utils.S` | ~150   | Configuración MMU, registros SCTLR/TCR/TTBR             |
 
 #### Kernel Core (.c)
-| Archivo       | Líneas | Descripción                                           |
-|---------------|--------|-------------------------------------------------------|
-| `kernel.c`    | ~200   | Inicialización del sistema, loop principal WFI        |
-| `process.c`   | ~230   | PCB management, create_process, create_user_process   |
-| `scheduler.c` | ~150   | Algoritmo aging, schedule(), sleep(), timer_tick      |
-| `sys.c`       | ~100   | Syscall dispatcher, sys_write, sys_exit, handle_fault |
+| Archivo       | Líneas | Descripción                                                       |
+|---------------|--------|-------------------------------------------------------------------|
+| `kernel.c`    | ~200   | Inicialización del sistema, loop principal WFI                    |
+| `process.c`   | ~280   | PCB management, create_process, create_user_process               |
+| `scheduler.c` | ~200   | Round-Robin + Aging + Quantum (v0.5), schedule(), timer_tick()   |
+| `sys.c`       | ~205   | Syscall dispatcher, Demand Paging handler (v0.5), handle_fault() |
 
 #### Drivers (.c)
-| Archivo   | Líneas | Descripción                                          |
-|-----------|--------|------------------------------------------------------|
-| `io.c`    | ~150   | UART driver, kprintf con formato %s/%d/%x/%c         |
-| `timer.c` | ~200   | Configuración GIC v2, timer físico, handle_timer_irq |
+| Archivo   | Líneas | Descripción                                                     |
+|-----------|--------|-----------------------------------------------------------------|
+| `io.c`    | ~150   | UART driver, kprintf con formato %s/%d/%x/%c                    |
+| `timer.c` | ~200   | Configuración GIC v2, timer físico, tick para quantum (v0.5)    |
 
 #### Memory Management (.c)
-| Archivo    | Líneas | Descripción                                    |
-|------------|--------|------------------------------------------------|
-| `mm.c`     | ~200   | Configuración MMU, tablas L1, identity mapping |
-| `malloc.c` | ~250   | kmalloc/kfree, lista enlazada, coalescing      |
+| Archivo    | Líneas | Descripción                                                      |
+|------------|--------|------------------------------------------------------------------|
+| `mm.c`     | ~250   | Configuración MMU, tablas L1/L2/L3, TLB invalidation             |
+| `pmm.c`    | ~180   | Physical Memory Manager: bitmap, get_free_page() (v0.5)          |
+| `vmm.c`    | ~200   | Virtual Memory Manager: map_page(), demand paging support (v0.5) |
+| `malloc.c` | ~250   | kmalloc/kfree, heap dinámico, lista enlazada, coalescing         |
 
 #### User Interface & Tests (.c)
-| Archivo       | Líneas | Descripción                                              |
-|---------------|--------|----------------------------------------------------------|
-| `shell.c`     | ~200   | Shell con 8 comandos, parser de entrada, eco y backspace |
-| `tests.c`     | ~190   | user_task (EL0), kamikaze_test, test_memory              |
-| `kutils.c`    | ~100   | panic, delay, strcmp, strncpy, memset, memcpy            |
-| `semaphore.c` | ~80    | sem_init, sem_wait, sem_signal                           |
+| Archivo       | Líneas | Descripción                                                       |
+|---------------|--------|-------------------------------------------------------------------|
+| `shell.c`     | ~280   | Shell con 11 comandos (v0.5: +test_rr, +test_sem, +test_demand)  |
+| `tests.c`     | ~250   | user_task (EL0), kamikaze_test, demand_test, semaphore tests     |
+| `kutils.c`    | ~100   | panic, delay, strcmp, strncpy, memset, memcpy                     |
+| `semaphore.c` | ~150   | sem_init, sem_wait, sem_signal con Wait Queues (v0.5)            |
 
-**Total de líneas de código**: ~2,500 líneas (sin contar comentarios y espacios)
+**Total de líneas de código**: ~3,000 líneas (sin comentarios y espacios en blanco)
+**Total bruto**: ~4,300 líneas (incluyendo documentación)
+**Incremento v0.4 → v0.5**: +700 líneas (~30% más funcionalidad)
 
 ### Módulos del Kernel
 
@@ -186,12 +203,14 @@ struct pcb {
     long pid;                    // Process ID (0-63)
     int priority;                // 0=máxima, 255=mínima
     long prempt_count;           // Contador de desalojamiento
-    unsigned long wake_up_time;  // Para sleep()
+    unsigned long wake_up_time;  // Para sleep() sin busy-wait
     char name[16];               // Nombre descriptivo
     unsigned long stack_addr;    // Dirección base de la pila
     unsigned long cpu_time;      // Tiempo de CPU usado
     int block_reason;            // NONE, SLEEP, WAIT
     int exit_code;               // Código de retorno
+    int quantum;                 // (v0.5) Ticks restantes antes de preemption
+    struct pcb *next;            // (v0.5) Para Wait Queues en semáforos
 };
 ```
 
@@ -226,16 +245,19 @@ struct pcb {
 
 **Comandos Disponibles**:
 
-| Comando          | Descripción       | Funcionalidad                                                                                       |
-|------------------|-------------------|-----------------------------------------------------------------------------------------------------|
-| `help`           | Muestra ayuda     | Lista todos los comandos disponibles con descripción                                                |
-| `ps`             | Process Status    | Lista procesos activos con PID, prioridad, estado (RUN/RDY/SLEEP/WAIT/ZOMB), tiempo de CPU y nombre |
-| `test`           | Batería de tests  | Ejecuta test_memory(), test_processes(), test_scheduler()                                           |
-| `test_user_mode` | Test modo usuario | Crea proceso en EL0 que ejecuta syscalls (user_task)                                                |
-| `test_crash`     | Test protección   | Crea proceso kamikaze que intenta escribir en NULL para demostrar protección de memoria             |
-| `clear`          | Limpiar pantalla  | Limpia terminal usando códigos ANSI (ESC[2J ESC[H)                                                  |
-| `panic`          | Kernel Panic      | Provoca un kernel panic intencionalmente (demo)                                                     |
-| `poweroff`       | Apagar sistema    | Apaga QEMU usando system_off() (PSCI)                                                               |
+| Comando            | Descripción         | Funcionalidad                                                                                       |
+|--------------------|---------------------|-----------------------------------------------------------------------------------------------------|
+| `help`             | Muestra ayuda       | Lista todos los comandos disponibles con descripción                                                |
+| `ps`               | Process Status      | Lista procesos activos con PID, prioridad, estado (RUN/RDY/SLEEP/WAIT/ZOMB), tiempo de CPU y nombre |
+| `test`             | Batería de tests    | Ejecuta test_memory(), test_processes(), test_scheduler()                                           |
+| `test_user_mode`   | Test modo usuario   | Crea proceso en EL0 que ejecuta syscalls (user_task)                                                |
+| `test_crash`       | Test protección     | Crea proceso kamikaze que intenta escribir en NULL para demostrar protección de memoria             |
+| `test_rr`          | Test Round-Robin    | **(v0.5)** Demuestra planificador con quantum y preemption basada en tiempo                         |
+| `test_sem`         | Test semáforos      | **(v0.5)** Valida Wait Queues sin busy-wait - procesos bloqueados no consumen CPU                   |
+| `test_page_fault`  | Test demand paging  | **(v0.5)** Provoca Page Fault para demostrar asignación de memoria bajo demanda                     |
+| `clear`            | Limpiar pantalla    | Limpia terminal usando códigos ANSI (ESC[2J ESC[H)                                                  |
+| `panic`            | Kernel Panic        | Provoca un kernel panic intencionalmente (demo)                                                     |
+| `poweroff`         | Apagar sistema      | Apaga QEMU usando system_off() (PSCI)                                                               |
 
 **Características del Shell**:
 - ✅ Entrada interactiva con eco local
@@ -451,6 +473,17 @@ void kernel() {
 ## Componentes Principales
 [↑ Volver a Tabla de Contenidos](#-tabla-de-contenidos)
 
+**Contenido de esta sección:**
+- [1. Boot y Inicialización (`boot.S`)](#1-boot-y-inicialización-boots)
+- [2. Núcleo del Kernel (Módulos)](#2-núcleo-del-kernel-módulos)
+- [3. Conmutación de Contexto (`entry.S`)](#3-conmutación-de-contexto-entrys)
+- [4. Planificador (Scheduler)](#4-planificador-scheduler)
+- [5. Gestor de Interrupciones](#5-gestor-de-interrupciones)
+- [6. Subsistema de Sincronización](#6-subsistema-de-sincronización)
+- [7. Modo Usuario (User Mode) y Syscalls](#7-modo-usuario-user-mode-y-syscalls)
+- [8. Protección de Memoria y Manejo de Fallos](#8-protección-de-memoria-y-manejo-de-fallos)
+- [9. Demand Paging y Gestión de Page Faults (v0.5)](#9-demand-paging-y-gestión-de-page-faults-v05)
+
 ### 1. **Boot y Inicialización** (`boot.S`)
 ```
 ┌─────────────────────────────┐
@@ -483,6 +516,8 @@ Responsabilidades:
 - Detección de CPU (multicore)
 - Inicialización de la pila desde `link.ld`
 - Salto a punto de entrada en C (`kernel()`)
+
+[↑ Volver a Componentes Principales](#componentes-principales)
 
 ---
 
@@ -530,6 +565,8 @@ int num_process;                              // Contador de procesos
 
 **Nota**: Las pilas de procesos ahora se asignan dinámicamente con `kmalloc()` en lugar de usar un array estático.
 
+[↑ Volver a Componentes Principales](#componentes-principales)
+
 ---
 
 ### 3. **Conmutación de Contexto** (`entry.S`)
@@ -569,55 +606,107 @@ cpu_switch_to:
 
 **Punto clave**: El "magic" es que x30 se sobrescribe con la dirección del nuevo proceso, así cuando `ret` ejecuta, salta a ese código en lugar de retornar.
 
+[↑ Volver a Componentes Principales](#componentes-principales)
+
 ---
 
-### 4. **Planificador (Scheduler)** 
+### 4. **Planificador (Scheduler)**
 
 Ubicación: `src/kernel/scheduler.c::schedule()`
 
-#### Algoritmo: Prioridad + Envejecimiento (Aging)
+**Contenido de esta sección:**
+- [Algoritmo Híbrido: Round-Robin con Quantum + Prioridades](#algoritmo-híbrido-round-robin-con-quantum--prioridades)
+- [¿Por qué Round-Robin con Quantum?](#por-qué-round-robin-con-quantum)
+
+#### Algoritmo Híbrido: Round-Robin con Quantum + Prioridades
+
+El planificador de v0.5 combina **Round-Robin con Quantum** (preemption forzosa) y **Prioridades con Aging** (fairness):
 
 ```
+═══════════════════════════════════════════════════════════════
+ROUND-ROBIN CON QUANTUM (Preemptive Multitasking)
+═══════════════════════════════════════════════════════════════
+En cada timer_tick() (~104ms):
+1. Decrementa quantum del proceso actual
+2. Si quantum == 0:
+   ├─ need_reschedule = 1
+   └─ Al retornar de IRQ, se llama schedule()
+
+Constante: DEFAULT_QUANTUM = 5 ticks (~520ms)
+
+═══════════════════════════════════════════════════════════════
+SCHEDULE() - ALGORITMO DE SELECCIÓN
+═══════════════════════════════════════════════════════════════
 ENTRADA: Lista de procesos [RUNNING, READY, BLOCKED]
 SALIDA: Nuevo proceso a ejecutar
 
-FASE 1: ENVEJECIMIENTO
-────────────────────
-Para cada proceso READY:
-    priority -= priority >> 2  // Baja prioridad (envejece)
+FASE 1: ENVEJECIMIENTO (Aging)
+────────────────────────────────
+Para cada proceso READY (excepto el actual):
+    if (priority > 0) priority--
     
-Efecto: Procesos esperando obtienen prioridad gradualmente
+Efecto: Procesos esperando incrementan su prioridad gradualmente
 
 FASE 2: SELECCIÓN
-────────────────
-Encontrar proceso READY con MENOR prioridad (número)
-    0 = máxima (seleccionar primero)
-    255 = mínima (seleccionar al final)
+──────────────────
+Encontrar proceso con MENOR priority entre READY y RUNNING
+    0 = máxima prioridad (seleccionar primero)
+    255 = mínima (seleccionar último)
 
-Cambiar su estado: RUNNING
+Si no hay nadie → Kernel (PID 0) toma el control
 
-FASE 3: PENALIZACIÓN
-────────────────────
-Aumentar prioridad del proceso anterior:
-    priority >>= 2
+FASE 3: PENALIZACIÓN Y QUANTUM
+────────────────────────────────
+Proceso seleccionado:
+    priority += 2        // Penalizar para próxima ronda
+    quantum = DEFAULT_QUANTUM  // Asignar tiempo de CPU
 
-Efecto: Proceso que acaba de ejecutar se envía a final de cola
+FASE 4: CONTEXT SWITCH
+────────────────────────
+if (prev != next):
+    prev.state = READY
+    next.state = RUNNING
+    cpu_switch_to(prev, next)  // Cambiar contexto (entry.S)
 ```
 
-#### ¿Por qué Aging?
+#### ¿Por qué Round-Robin con Quantum?
 
-Sin aging → **inanición (starvation)**:
+**Problema sin quantum** → Un proceso egoísta puede monopolizar la CPU:
 ```
-Proceso A: prioridad 10 (alta, se ejecuta siempre)
-Proceso B: prioridad 250 (baja, nunca se ejecuta)
+Proceso A: while(1) {}  // Nunca cede la CPU voluntariamente
+Proceso B: Nunca ejecuta (sistema congelado)
+```
+
+**Solución con quantum** → Preemption automática cada 5 ticks:
+```
+Tick 0:  A ejecuta (quantum=5)
+Tick 1:  A ejecuta (quantum=4)
+...
+Tick 5:  A ejecuta (quantum=0) → need_reschedule=1
+         ↓
+         schedule() forzoso → B ejecuta (quantum=5)
+```
+
+**Ventajas del Aging** → Sin aging, prioridades fijas causan starvation:
+```
+Proceso A: prioridad 5 (alta, se ejecuta siempre)
+Proceso B: prioridad 200 (baja, nunca ejecuta)
 ↓
-Con aging, prioridad de B → 249, 248, ... 10, 9, ...
-Eventualmente B se ejecuta y A espera.
+Con aging cada tick: B.priority = 199, 198, ... 5, 4, ...
+Eventualmente B obtiene mayor prioridad que A y ejecuta.
 ```
+
+**Resultado**: Sistema justo (fairness) y responsivo (responsive) con soporte para prioridades.
+
+[↑ Volver a Componentes Principales](#componentes-principales)
 
 ---
 
 ### 5. **Gestor de Interrupciones**
+
+**Contenido de esta sección:**
+- [Tabla de Excepciones (`vectors.S`)](#tabla-de-excepciones-vectorss)
+- [Flujo de Interrupción de Timer](#flujo-de-interrupción-de-timer)
 
 #### Tabla de Excepciones (`vectors.S`)
 
@@ -703,9 +792,15 @@ Cuando ocurre una **excepción**, la CPU:
 | GICC_IAR          | 0x0801000C | Interrupt ACK (leer para obtener ID)   |
 | GICC_EOIR         | 0x08010010 | End of Interrupt (CRÍTICO)             |
 
+[↑ Volver a Componentes Principales](#componentes-principales)
+
 ---
 
 ### 6. **Subsistema de Sincronización**
+
+**Contenido de esta sección:**
+- [Spinlocks (Locks)](#spinlocks-locks)
+- [Semáforos (Semaphore)](#semáforos-semaphore)
 
 #### Spinlocks (Locks)
 
@@ -759,19 +854,83 @@ Ubicación: `src/semaphore.c`
 
 ```c
 struct semaphore {
-    volatile int count;  // Contador de recursos disponibles
-    int lock;            // Spinlock protegiendo count
+    volatile int count;      // Contador de recursos disponibles
+    int lock;                // Spinlock protegiendo count
+    struct pcb *wait_head;   // (v0.5) Inicio de Wait Queue
+    struct pcb *wait_tail;   // (v0.5) Final de Wait Queue
 };
 ```
 
-**Operaciones clásicas (Dijkstra)**:
+**Operaciones clásicas (Dijkstra) con Wait Queues (v0.5)**:
 
 ```
-P() [sem_wait]:     V() [sem_signal]:
-while (count <= 0)  count++
-    schedule()      (despierta waiters)
-count--
+P() [sem_wait]:              V() [sem_signal]:
+────────────────────────     ─────────────────────────
+spin_lock(&sem->lock)        spin_lock(&sem->lock)
+                            
+Si count > 0:                 count++
+    count--                   
+    spin_unlock()             Si wait_head != NULL:
+    return                        Sacar proceso de Wait Queue
+Sino:                             proceso->state = READY
+    // NUEVO v0.5: Wait Queue  spin_unlock()
+    Agregar proceso actual     
+    a Wait Queue (FIFO)       Efecto: Despierta primer proceso
+    proceso->state = BLOCKED   en espera (FIFO)
+    proceso->block_reason = 
+        BLOCK_REASON_WAIT
+    spin_unlock()
+    schedule()  // Cede CPU
+    
+Efecto: Proceso duerme hasta 
+que sem_signal() lo despierte
 ```
+
+**DIFERENCIA CLAVE v0.4 vs v0.5**:
+
+| Aspecto        | v0.4 (Busy-Wait)            | v0.5 (Wait Queue)               |
+|----------------|-----------------------------|---------------------------------|
+| **CPU**        | Desperdicia ciclos en bucle | Proceso BLOCKED, no consume CPU |
+| **Eficiencia** | Baja (spinning)             | Alta (sleeping)                 |
+| **Despertar**  | Detecta automáticamente     | Explícitamente despertado       |
+| **Orden**      | No garantizado              | FIFO (justo)                    |
+
+**Implementación Wait Queue (v0.5)**:
+
+```
+Wait Queue como lista enlazada FIFO:
+────────────────────────────────────
+
+semaphore:                   
+  wait_head → [PCB_A] → [PCB_B] → [PCB_C] → NULL
+  wait_tail  ────────────────────────────────┘
+
+sem_wait() cuando count == 0:
+  1. current_process->next = NULL
+  2. Si wait_tail == NULL:  // Cola vacía
+         wait_head = wait_tail = current_process
+     Sino:                     // Agregar al final
+         wait_tail->next = current_process
+         wait_tail = current_process
+  3. current_process->state = BLOCKED
+  4. schedule()  // Cede CPU
+
+sem_signal():
+  1. count++
+  2. Si wait_head != NULL:
+         proceso = wait_head
+         wait_head = wait_head->next
+         Si wait_head == NULL:
+             wait_tail = NULL
+         proceso->state = READY
+         proceso->next = NULL
+```
+
+**Ventajas Wait Queue vs Busy-Wait**:
+- ✅ **0% CPU usage** cuando bloqueado (vs 100% en busy-wait)
+- ✅ **FIFO ordering** garantiza fairness
+- ✅ **Explicit wake-up** permite optimizaciones
+- ✅ **Scalable** con muchos waiters
 
 **Ejemplo: Mutex**
 ```c
@@ -786,9 +945,23 @@ sem_signal(&mutex);    // Libera
 // Segundo proceso estaba esperando, ahora puede entrar
 ```
 
+[↑ Volver a Componentes Principales](#componentes-principales)
+
 ---
 
 ### 7. **Modo Usuario (User Mode) y Syscalls**
+
+**Contenido de esta sección:**
+- [Visión General](#visión-general-1)
+- [Arquitectura de Niveles de Excepción ARM64](#arquitectura-de-niveles-de-excepción-arm64)
+- [Creación de Procesos de Usuario](#creación-de-procesos-de-usuario)
+- [Transición Kernel → Usuario (entry.S)](#transición-kernel--usuario-entrys)
+- [Sistema de Llamadas (Syscalls)](#sistema-de-llamadas-syscalls)
+- [Flujo de Syscall Completo](#flujo-de-syscall-completo)
+- [Ejemplo de Proceso de Usuario](#ejemplo-de-proceso-de-usuario)
+- [Estructura pt_regs](#estructura-pt_regs)
+- [Ventajas del Modelo User/Kernel](#ventajas-del-modelo-userkernel)
+- [Limitaciones Actuales](#limitaciones-actuales)
 
 #### Visión General
 
@@ -1021,9 +1194,21 @@ Esta estructura es llenada por `kernel_entry` en `entry.S` y permite al kernel:
 - No hay validación de punteros de usuario
 - Stack de usuario compartido (no hay separación por proceso)
 
+[↑ Volver a Componentes Principales](#componentes-principales)
+
 ---
 
 ### 8. **Protección de Memoria y Manejo de Fallos**
+
+**Contenido de esta sección:**
+- [Manejo de Excepciones Síncronas](#manejo-de-excepciones-síncronas)
+- [Handler de Fallos](#handler-de-fallos)
+- [Flujo de Manejo de Fallo](#flujo-de-manejo-de-fallo)
+- [Exception Syndrome Register (ESR_EL1)](#exception-syndrome-register-esr_el1)
+- [Proceso de Prueba: kamikaze_test](#proceso-de-prueba-kamikaze_test)
+- [Tabla de Vectores y Protección](#tabla-de-vectores-y-protección)
+- [Limitaciones de la Protección Actual](#limitaciones-de-la-protección-actual)
+- [Registros de Depuración](#registros-de-depuración)
 
 #### Manejo de Excepciones Síncronas
 
@@ -1201,157 +1386,320 @@ void handle_fault(void) {
 }
 ```
 
----
-
-### 9. **Sistema de E/S**
-
-#### UART (Universal Asynchronous Receiver-Transmitter)
-
-Ubicación: `src/drivers/io.c`, `include/drivers/io.h`
-
-```
-┌────────────────────┐
-│ kprintf()          │ (printf-like con %c, %s, %d, %x)
-└────────┬───────────┘
-         │
-         ▼
-┌────────────────────┐
-│ uart_puts()        │ (cadena)
-└────────┬───────────┘
-         │
-         ▼
-┌────────────────────┐
-│ uart_putc()        │ (carácter individual)
-└────────┬───────────┘
-         │
-         ▼
-┌────────────────────────────────┐
-│ *UART0_DIR = (unsigned int)c   │
-│ Escritura en 0x09000000        │
-└────────────────────────────────┘
-         │
-         ▼
-┌────────────────────────────────┐
-│ Consola QEMU (stdout)          │
-└────────────────────────────────┘
-```
-
-**Limitaciones**:
-- Solo escritura (no hay lectura de entrada)
-- Sin buffering de hardware (asumimos que siempre acepta)
-- Sin interrupciones (polling es responsabilidad de usuario)
-
-[↑ Volver a Tabla de Contenidos](#-tabla-de-contenidos)
+[↑ Volver a Componentes Principales](#componentes-principales)
 
 ---
 
-## Flujo de Ejecución
-[↑ Volver a Tabla de Contenidos](#-tabla-de-contenidos)
+### 9. **Demand Paging y Gestión de Page Faults** (v0.5)
 
-### Secuencia Boot → Kernel → Multitarea
+**Contenido de esta sección:**
+- [Visión General](#visión-general-2)
+- [Registros ARM64 Involucrados](#registros-arm64-involucrados)
+- [Flujo del Demand Paging (8 Pasos)](#flujo-del-demand-paging-8-pasos)
+- [Código Simplificado](#código-simplificado)
+- [Integración con el Subsistema de Memoria](#integración-con-el-subsistema-de-memoria)
+- [Esquema de Traducción Multinivel (L1/L2/L3)](#esquema-de-traducción-multinivel-l1l2l3)
+- [Tipos de Descriptores](#tipos-de-descriptores)
+- [Registros Clave del Sistema](#registros-clave-del-sistema)
+- [Estructura de Bloques](#estructura-de-bloques)
+- [Algoritmo de Asignación](#algoritmo-de-asignación)
 
+#### Visión General
+
+BareMetalM4 v0.5 implementa **Demand Paging** (paginación por demanda), una técnica de gestión de memoria donde las páginas físicas solo se asignan cuando son accedidas por primera vez, no al crear el proceso.
+
+**Concepto clave**: Asignación perezosa (lazy allocation)
+- Las páginas virtuales se marcan como "no presentes" en las tablas de páginas
+- El primer acceso genera un **Page Fault** (excepción)
+- El kernel asigna una página física y actualiza las tablas
+- El acceso se reintenta automáticamente → ¡Éxito!
+- El proceso nunca se entera (transparente)
+
+**Beneficios del Demand Paging**:
+
+| Ventaja                     | Descripción                                                     |
+|-----------------------------|-----------------------------------------------------------------|
+| ✅ **Optimización de RAM**   | Solo asigna memoria que realmente se usa                        |
+| ✅ **Arranque más rápido**   | No pre-asigna todo el heap/stack al crear procesos              |
+| ✅ **Sobrecompromiso**       | Puede prometer más memoria virtual que RAM física disponible    |
+| ✅ **Estándar de industria** | Linux, Windows, macOS, BSD usan esta técnica                    |
+| ✅ **Base para swap**        | Permite paginación a disco (no implementado en BareMetalM4 aún) |
+
+#### Registros ARM64 Involucrados
+
+El manejo de page faults requiere consultar registros de sistema especiales:
+
+**FAR_EL1 (Fault Address Register)**:
 ```
-1. RESET (ARM64 HW)
-   └─ PC = 0x80000000 (configurado en QEMU)
+Contiene la dirección virtual que causó el fallo
 
-2. boot.S ejecuta:
-   ├─ Lee MPIDR_EL1: ¿Soy CPU 0 o secundaria?
-   ├─ Si secundaria: WFE (Wait For Event, sleep)
-   ├─ Si CPU 0:
-   │   ├─ Limpia sección BSS
-   │   ├─ Inicializa pila (SP)
-   │   └─ Salta a kernel() en kernel.c
-   └─ (No retorna)
-
-3. kernel.c ejecuta:
-   ├─ init_memory_system() - Inicializa sistema de memoria:
-   │   ├─ mem_init() configura MMU:
-   │   │   ├─ Crea tabla de páginas L1
-   │   │   ├─ Mapea periféricos (Device memory)
-   │   │   ├─ Mapea RAM del kernel (Normal memory)
-   │   │   ├─ Configura MAIR, TCR, TTBR0/1
-   │   │   ├─ Activa MMU y caches (SCTLR_EL1)
-   │   │   └─ Sistema ahora ejecuta en memoria virtual
-   │   └─ kheap_init() inicializa heap dinámico:
-   │       ├─ Heap base: símbolo _end del linker
-   │       ├─ Tamaño: 64 MB
-   │       ├─ Alineación a 16 bytes
-   │       └─ Bloque libre inicial cubre todo el heap
-   ├─ init_process_system() - Inicializa gestión de procesos:
-   │   ├─ Configura Proceso 0 (Kernel/IDLE)
-   │   │   ├─ PID = 0, state = RUNNING
-   │   │   ├─ priority = 0
-   │   │   └─ name = "Kernel"
-   │   ├─ Inicializa tabla de PCBs
-   │   └─ Apunta current_process al proceso 0
-   ├─ timer_init() configura interrupciones:
-   │   ├─ Tabla de excepciones (VBAR_EL1)
-   │   ├─ GIC distribuidor (0x08000000)
-   │   ├─ GIC CPU interface (0x08010000)
-   │   ├─ Timer físico (CNTP_TVAL_EL0)
-   │   └─ Interrupciones habilitadas
-   ├─ test_memory() valida subsistemas:
-   │   ├─ Prueba kmalloc(16) / kfree()
-   │   ├─ Verifica SCTLR_EL1
-   │   └─ Valida escritura en memoria dinámica
-   ├─ create_process() crea procesos del sistema:
-   │   ├─ shell_task (prioridad 1) - Shell interactivo
-   │   └─ Cada proceso con stack de 4 KB (kmalloc)
-   ├─ WFI (Wait For Interrupt)
-   │   └─ CPU duerme hasta que llega IRQ
-   └─ (Loop infinito)
-
-4. Timer genera IRQ cada ~104ms:
-   ├─ CPU despierta del WFI
-   ├─ Salta a irq_handler_stub (entry.S)
-   ├─ Llama handle_timer_irq() (timer.c)
-   │   ├─ Lee GICC_IAR (acknowledges IRQ)
-   │   ├─ Recarga timer
-   │   ├─ Llama schedule() ← CAMBIO DE CONTEXTO
-   │   └─ Escribe GICC_EOIR (importante!)
-   ├─ schedule() elige nuevo proceso
-   ├─ entry.S cpu_switch_to cambia contexto
-   └─ Ejecuta nuevo proceso (o el mismo)
-
-5. Ciclo 4 se repite cada ~104ms
+Lectura desde C:
+    unsigned long far;
+    asm volatile("mrs %0, far_el1" : "=r"(far));
+    
+Ejemplo: Si el proceso hace *ptr = 0x50000000 y falla,
+         FAR_EL1 contendrá 0x50000000
 ```
 
-[↑ Volver a Tabla de Contenidos](#-tabla-de-contenidos)
+**ESR_EL1 (Exception Syndrome Register)**:
+```
+Bits [31:26] - EC (Exception Class):
+    0x24 = Data Abort desde EL1 (kernel)
+    0x25 = Data Abort desde EL0 (usuario)
+    0x15 = SVC instruction (syscall)
+    0x20 = Instruction Abort
+    ...otros códigos
+    
+Bits [24:0] - ISS (Instruction Specific Syndrome):
+    Detalles adicionales (RW bit, tipo de acceso, etc.)
 
----
+Lectura desde C:
+    unsigned long esr;
+    asm volatile("mrs %0, esr_el1" : "=r"(esr));
+    unsigned long ec = esr >> 26;  // Extraer Exception Class
+```
 
-## Subsistema de Memoria Virtual (MMU)
-[↑ Volver a Tabla de Contenidos](#-tabla-de-contenidos)
+#### Flujo del Demand Paging (8 Pasos)
 
-### Visión General
+**Ubicación**: `src/kernel/sys.c:handle_fault()`
 
-El kernel implementa un **sistema de memoria virtual** usando la MMU (Memory Management Unit) de ARM64. Esto proporciona:
+```
+PROCESO USUARIO (EL0):
+    int *ptr = (int*)0x50000000;
+    *ptr = 42;  // ← Acceso a página no mapeada
+    │
+    ▼
+╔══════════════════════════════════════════════════════════╗
+║ 1. CPU detecta que 0x50000000 no está en TLB             ║
+║    └─ Busca en tablas de páginas → No existe entrada     ║
+╚══════════════════════════════════════════════════════════╝
+    │
+    ▼
+╔══════════════════════════════════════════════════════════╗
+║ 2. CPU genera Data Abort (Page Fault)                    ║
+║    ├─ Guarda dirección culpable en FAR_EL1               ║
+║    ├─ Guarda causa en ESR_EL1 (EC=0x25)                  ║
+║    ├─ Cambia a EL1 (modo kernel)                         ║
+║    └─ Salta a VBAR_EL1 + 0x400 (el0_sync)                ║
+╚══════════════════════════════════════════════════════════╝
+    │
+    ▼
+vectors.S: el0_sync
+    │
+    ├─ kernel_entry (guarda contexto)
+    ├─ mrs x25, esr_el1
+    ├─ lsr x24, x25, #26  // Extraer EC
+    ├─ cmp x24, #0x15     // ¿Es SVC?
+    ├─ b.ne error_invalid // No → Data Abort
+    └─ b handle_fault     // Saltar a C
+    │
+    ▼
+╔══════════════════════════════════════════════════════════╗
+║ 3. handle_fault() lee FAR_EL1 y ESR_EL1                  ║
+║    unsigned long far, esr;                               ║
+║    asm volatile("mrs %0, far_el1" : "=r"(far));          ║
+║    asm volatile("mrs %0, esr_el1" : "=r"(esr));          ║
+║    unsigned long ec = esr >> 26;                         ║
+╚══════════════════════════════════════════════════════════╝
+    │
+    ▼
+╔══════════════════════════════════════════════════════════╗
+║ 4. ¿Es Page Fault legítimo? (EC == 0x24 || EC == 0x25)   ║
+║    └─ Si → Continuar con demand paging                   ║
+║    └─ No → Segmentation Fault → exit()                   ║
+╚══════════════════════════════════════════════════════════╝
+    │ (Sí)
+    ▼
+╔══════════════════════════════════════════════════════════╗
+║ 5. Asignar página física del PMM                         ║
+║    unsigned long phys_page = get_free_page();            ║
+║    └─ Retorna dirección física de 4KB libre (ej: 0x...)  ║
+╚══════════════════════════════════════════════════════════╝
+    │
+    ▼
+╔══════════════════════════════════════════════════════════╗
+║ 6. Mapear en tablas de páginas L1/L2/L3                  ║
+║    unsigned long virt_aligned = far & ~(PAGE_SIZE - 1);  ║
+║    map_page(kernel_pgd, virt_aligned, phys_page, flags); ║
+║    └─ Crea entrada en tabla L3: Virtual → Física         ║
+╚══════════════════════════════════════════════════════════╝
+    │
+    ▼
+╔══════════════════════════════════════════════════════════╗
+║ 7. Invalidar TLB (Translation Lookaside Buffer)          ║
+║    tlb_invalidate_all();                                 ║
+║    └─ La TLB cachea traducciones. Hay que invalidarla    ║
+║       para que la MMU vea la nueva entrada               ║
+╚══════════════════════════════════════════════════════════╝
+    │
+    ▼
+╔══════════════════════════════════════════════════════════╗
+║ 8. RETORNAR al código de usuario                         ║
+║    return; ← CPU automáticamente reintenta instrucción   ║
+║    └─ Ahora la página está mapeada → Acceso exitoso      ║
+╚══════════════════════════════════════════════════════════╝
+    │
+    ▼
+PROCESO USUARIO (EL0):
+    *ptr = 42;  // ← ¡Ahora funciona! La página existe
+    // Continúa ejecución sin saber que hubo un page fault
+```
 
-- **Traducción de direcciones**: Virtual → Física
-- **Tipos de memoria**: Device (periféricos) y Normal (RAM con caches)
-- **Protección**: Separación lógica entre regiones de memoria
-- **Caches**: Aceleración de accesos a RAM
-- **Asignación dinámica**: Sistema de `kmalloc`/`kfree` para gestión del heap
+#### Código Simplificado
+
+**Ubicación**: `src/kernel/sys.c:handle_fault()`
+
+```c
+void handle_fault(void) {
+    unsigned long far, esr;
+    
+    /* 1. Leer registros de excepción */
+    asm volatile("mrs %0, far_el1" : "=r"(far));  // Qué dirección
+    asm volatile("mrs %0, esr_el1" : "=r"(esr));  // Por qué falló
+    
+    /* 2. Extraer Exception Class */
+    unsigned long ec = esr >> 26;
+    
+    /* 3. ¿Es Page Fault? (0x24=kernel, 0x25=usuario) */
+    if (ec == 0x24 || ec == 0x25) {
+        kprintf("\n[MMU] Page Fault en dir: 0x%x\n", far);
+        
+        /* 4. Asignar página física */
+        unsigned long phys_page = get_free_page();
+        if (phys_page) {
+            /* 5. Alinear a 4KB */
+            unsigned long virt_aligned = far & ~(PAGE_SIZE - 1);
+            
+            /* 6. Configurar permisos según nivel de privilegio */
+            unsigned long flags = (ec == 0x25) ? 
+                (MM_RW | MM_USER | MM_SH | (ATTR_NORMAL << 2)) :
+                (MM_RW | MM_KERNEL | MM_SH | (ATTR_NORMAL << 2));
+            
+            /* 7. Mapear en tablas de páginas */
+            map_page(kernel_pgd, virt_aligned, phys_page, flags);
+            
+            /* 8. Invalidar TLB */
+            tlb_invalidate_all();
+            
+            /* 9. Retornar → CPU reintenta → Éxito */
+            return;
+        } else {
+            kprintf("[PMM] Out of Memory!\n");
+        }
+    }
+    
+    /* No es page fault o no hay RAM → Matar proceso */
+    kprintf("\n[CPU] Segmentation Fault en 0x%x\n", far);
+    exit();
+}
+```
+
+#### Integración con el Subsistema de Memoria
+
+El demand paging conecta tres componentes clave:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ 1. GESTOR DE MEMORIA FÍSICA (PMM)                       │
+│    src/mm/pmm.c: get_free_page()                        │
+│    └─ Busca página libre en bitmap                      │
+│    └─ Marca como usada                                  │
+│    └─ Retorna dirección física (ej: 0x10000000)         │
+└────────────────┬────────────────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────────────────────┐
+│ 2. GESTOR DE MEMORIA VIRTUAL (VMM)                      │
+│    src/mm/vmm.c: map_page()                             │
+│    └─ Navega tablas L1 → L2 → L3                        │
+│    └─ Crea descriptores si faltan                       │
+│    └─ Inserta entrada: Virtual → Física + Permisos      │
+└────────────────┬────────────────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────────────────────┐
+│ 3. TLB (Translation Lookaside Buffer)                   │
+│    src/mm/mm.c: tlb_invalidate_all()                    │
+│    └─ Invalida cachés de traducción                     │
+│    └─ Fuerza a MMU a releer tablas de páginas           │
+│    └─ Garantiza que los cambios se vean inmediatamente  │
+└─────────────────────────────────────────────────────────┘
+```
+
+[↑ Volver a Demand Paging](#9-demand-paging-y-gestión-de-page-faults-v05)
 
 ### Arquitectura de la MMU ARM64
 
-```
-DIRECCION VIRTUAL (39 bits)
-│
-├─ Bits [38:30] → Índice L1 (512 entradas)
-│                 Cada entrada = 1 GB
-│
-└─ Con T0SZ=25:
-   - Espacio virtual: 2^39 = 512 GB
-   - Tabla L1 directa (sin L2/L3)
-   - Bloques de 1 GB (simplificado)
+#### Esquema de Traducción Multinivel (L1/L2/L3)
 
+BareMetalM4 v0.5 implementa un esquema completo de paginación de 3 niveles:
+
+```
+DIRECCION VIRTUAL (48 bits) - Configuración con 4KB pages
+│
+├─ Bits [47:39] (9 bits) → Índice L1 (512 entradas) - Table Descriptor
+│   └─ Cada entrada apunta a tabla L2
+│
+├─ Bits [38:30] (9 bits) → Índice L2 (512 entradas) - Table Descriptor
+│   └─ Cada entrada apunta a tabla L3
+│
+├─ Bits [29:21] (9 bits) → Índice L3 (512 entradas) - Page Descriptor
+│   └─ Cada entrada = página física de 4KB
+│
+└─ Bits [20:0] (12 bits) → Offset dentro de la página (4KB)
+
+TAMAÑOS:
+- Página L3: 4 KB (2^12)
+- Bloque L2: 2 MB (512 páginas × 4KB)
+- Bloque L1: 1 GB (512 bloques L2 × 2MB)
+- Total espacio: 512 GB (512 entradas L1 × 1GB)
+
+CONFIGURACIÓN:
+├─ T0SZ=16: 48 bits de espacio virtual (256 TB)
+├─ TG0=4KB: Granularidad de página = 4096 bytes
+└─ 3 niveles activos: L1 → L2 → L3
+```
+
+#### Tipos de Descriptores
+
+```c
+/* Descriptor de Tabla (L1 y L2) */
+uint64_t table_descriptor = 
+    (dirección_física_siguiente_tabla) | 
+    0x3;  // Bits[1:0] = 0b11 (válido + tipo tabla)
+
+/* Descriptor de Página (L3) */
+uint64_t page_descriptor = 
+    (dirección_física_página) |
+    (atributos << 2) |  // MAIR index
+    (AP << 6) |         // Access Permissions
+    (SH << 8) |         // Shareability
+    (AF << 10) |        // Access Flag
+    0x3;                // Bits[1:0] = 0b11 (válido + tipo página)
+```
+
+#### Registros Clave del Sistema
+
+```
 REGISTROS CLAVE:
-├─ MAIR_EL1: Tipos de memoria (Device, Normal)
-├─ TCR_EL1: Configuración (T0SZ, granularidad)
-├─ TTBR0_EL1: Tabla de páginas (direcciones bajas)
-├─ TTBR1_EL1: Tabla de páginas (direcciones altas)
-└─ SCTLR_EL1: Control (MMU, I-Cache, D-Cache)
+├─ MAIR_EL1: Memory Attribute Indirection Register
+│   └─ Define tipos de memoria (Device, Normal con/sin cache)
+│
+├─ TCR_EL1: Translation Control Register
+│   ├─ T0SZ=16: 48 bits de dirección virtual
+│   ├─ TG0=4KB: Granularidad de página
+│   └─ Configura comportamiento de traducción
+│
+├─ TTBR0_EL1: Translation Table Base Register 0
+│   └─ Apunta a tabla L1 (direcciones bajas 0x0000...)
+│
+├─ TTBR1_EL1: Translation Table Base Register 1
+│   └─ Apunta a tabla L1 (direcciones altas 0xFFFF...)
+│
+└─ SCTLR_EL1: System Control Register
+    ├─ M bit: MMU Enable/Disable
+    ├─ C bit: D-Cache Enable/Disable
+    └─ I bit: I-Cache Enable/Disable
 ```
 
 ### Mapa de Memoria QEMU virt
@@ -1614,13 +1962,28 @@ void *stack = kmalloc(4096);  // 4KB de pila
 - **Sin estadísticas**: No hay tracking de memoria usada/libre
 - **Sin coalescing completo**: Implementación básica (mejora pendiente)
 
-### Limitaciones del Subsistema de Memoria
+### Limitaciones y Mejoras Futuras
 
-- No hay protección entre procesos (todos comparten espacio)
-- No hay paginación dinámica (todo mapeado al inicio)
-- No hay swapping (sin disco)
-- Tabla L1 única (sin separación user/kernel)
-- El asignador usa first-fit (no es óptimo)
+| Limitación Actual                     | Estado en v0.5                              | Mejora Futura                            |
+|---------------------------------------|---------------------------------------------|------------------------------------------|
+| **Protección entre procesos**         | ❌ Todos comparten espacio virtual          | Tablas de páginas por proceso (TTBR0)   |
+| **Paginación dinámica**               | ✅ **Implementado con Demand Paging**       | Completado en v0.5                       |
+| **Swapping a disco**                  | ❌ Sin soporte de disco                     | Sistema de archivos + swap partition     |
+| **Copy-on-Write (COW)**               | ❌ No implementado                          | Para fork() eficiente                    |
+| **Estadísticas de memoria**           | ❌ Sin tracking                             | Contadores de uso RAM/páginas            |
+| **Validación de rangos**              | ❌ No verifica límites heap/stack           | Implementar límites por proceso          |
+| **Asignador first-fit**               | ⚠️ Funcional pero no óptimo                 | Migrar a best-fit o slab allocator       |
+| **Tablas L1/L2/L3**                   | ✅ **Implementado multinivel**              | Completado en v0.5                       |
+| **Gestión física separada**           | ✅ **PMM con bitmap implementado**          | Completado en v0.5                       |
+
+**Progreso v0.4 → v0.5**:
+- ✅ Paginación multinivel (L1/L2/L3)
+- ✅ Physical Memory Manager (PMM)
+- ✅ Virtual Memory Manager (VMM)
+- ✅ Demand Paging con page fault handler
+- ✅ Asignación perezosa de memoria
+
+[↑ Volver a Componentes Principales](#componentes-principales)
 
 [↑ Volver a Tabla de Contenidos](#-tabla-de-contenidos)
 
@@ -1628,6 +1991,15 @@ void *stack = kmalloc(4096);  // 4KB de pila
 
 ## Subsistema de Planificación
 [↑ Volver a Tabla de Contenidos](#-tabla-de-contenidos)
+
+**Contenido de esta sección:**
+- [Estados de Proceso](#estados-de-proceso)
+- [Estructura PCB Completa](#estructura-pcb-completa)
+- [Algoritmo de Scheduling](#algoritmo-de-scheduling)
+- [Mecanismo de Quantum (v0.5)](#mecanismo-de-quantum-v05)
+- [Tabla de Prioridades](#tabla-de-prioridades)
+- [Sistema de Despertar (Wake-up)](#sistema-de-despertar-wake-up)
+- [Sleep: Dormir un Proceso por Tiempo Determinado](#sleep-dormir-un-proceso-por-tiempo-determinado)
 
 ### Estados de Proceso
 
@@ -1738,11 +2110,13 @@ struct pcb {
 
 **Ubicación**: `src/kernel/scheduler.c::schedule()`
 
-El scheduler implementa **prioridades con aging** para prevenir inanición:
+El scheduler implementa un **algoritmo híbrido** que combina:
+1. **Prioridades con Aging** (prevenir inanición)
+2. **Round-Robin con Quantum** (v0.5) - Preemption basada en tiempo
 
 ```
-ALGORITMO: Prioridad + Envejecimiento
-═══════════════════════════════════════
+ALGORITMO: Prioridad + Aging + Round-Robin con Quantum (v0.5)
+═════════════════════════════════════════════════════════════
 
 ENTRADA: process[] con estados variados
 SALIDA: Próximo proceso a ejecutar
@@ -1767,12 +2141,17 @@ Para cada proceso:
 Si next_pid == -1:  // Nadie disponible
     next_pid = 0    // Kernel IDLE por defecto
 
-FASE 3: PENALIZACIÓN (Evitar monopolio)
-────────────────────────────────────────
+FASE 3: PENALIZACIÓN + ASIGNACIÓN DE QUANTUM (v0.5)
+────────────────────────────────────────────────────
 Si next->priority < 10:
     next->priority += 2   // Baja prioridad del elegido
 
-Efecto: Proceso que acaba de ejecutar debe esperar más
+// NUEVO en v0.5: Asignar quantum para Round-Robin
+next->quantum = DEFAULT_QUANTUM  // 5 ticks
+// El quantum se decrementa en timer_tick() cada interrupción
+// Cuando quantum llega a 0, se marca need_reschedule = 1
+
+Efecto: Proceso ejecuta máximo 5 ticks antes de preemption obligatoria
 
 FASE 4: CAMBIO DE CONTEXTO
 ───────────────────────────
@@ -1781,6 +2160,44 @@ Si prev != next:
     next->state = RUNNING
     current_process = next
     cpu_switch_to(prev, next)   // Assembly context switch
+```
+
+### Mecanismo de Quantum (v0.5)
+
+El **quantum** es el tiempo máximo que un proceso puede ejecutar antes de ser forzosamente desalojado:
+
+```
+TIMER_TICK (cada ~104ms):
+┌────────────────────────────────────────┐
+│ 1. Incrementa sys_timer_count          │
+│ 2. Despierta procesos BLOCKED por sleep│
+│ 3. Decrementa quantum proceso actual   │
+│ 4. Si quantum == 0:                    │
+│    ├─ need_reschedule = 1              │
+│    └─ schedule() será llamado          │
+└────────────────────────────────────────┘
+        │
+        ▼
+KERNEL_EXIT (al retornar de IRQ):
+┌────────────────────────────────────────┐
+│ 1. Verifica need_reschedule            │
+│ 2. Si == 1:                            │
+│    └─ Llama schedule()                 │
+│       └─ Elige nuevo proceso (puede    │
+│          ser el mismo si tiene mayor   │
+│          prioridad)                    │
+└────────────────────────────────────────┘
+```
+
+**Ventajas del Quantum**:
+- ✅ **Fairness**: Todos los procesos obtienen tiempo de CPU
+- ✅ **Preemption automática**: No depende de yield() voluntario
+- ✅ **Responsiveness**: Sistema responde rápido a eventos
+- ✅ **Previene monopolio**: Procesos no pueden acaparar CPU indefinidamente
+
+**Constantes**:
+```c
+#define DEFAULT_QUANTUM 5  // Ticks antes de preemption
 ```
 
 ### Tabla de Prioridades
@@ -1950,6 +2367,10 @@ void proceso_1() {
 ## Decisiones de Diseño
 [↑ Volver a Tabla de Contenidos](#-tabla-de-contenidos)
 
+**Contenido de esta sección:**
+- [✅ Decisiones Acertadas](#-decisiones-acertadas)
+- [⚠️ Limitaciones Intencionales](#-limitaciones-intencionales)
+
 ### ✅ Decisiones Acertadas
 
 | Decisión                   | Razón                                             |
@@ -2019,6 +2440,13 @@ void proceso_1() {
 ## Limitaciones y Mejoras Futuras
 [↑ Volver a Tabla de Contenidos](#-tabla-de-contenidos)
 
+**Contenido de esta sección:**
+- [✅ Características Implementadas (v0.5)](#-características-implementadas-v05)
+- [Fase 1: Mejoras Educativas (Siguientes)](#fase-1-mejoras-educativas-siguientes)
+- [Fase 2: Características Reales](#fase-2-características-reales)
+- [Fase 3: Optimizaciones](#fase-3-optimizaciones)
+- [Diagrama de Flujo: Syscall desde User Mode](#diagrama-de-flujo-syscall-desde-user-mode)
+
 ### ✅ Características Implementadas (v0.5)
 - [x] Arquitectura modular con separación de subsistemas
 - [x] Asignación dinámica de memoria (kmalloc/kfree)
@@ -2069,6 +2497,10 @@ void proceso_1() {
 ---
 
 ## Diagrama de Componentes
+
+**Contenido de esta sección:**
+- [Registros ARM64 Importantes](#registros-arm64-importantes)
+- [Exception Syndrome Register (ESR_EL1) - Valores Clave](#exception-syndrome-register-esr_el1---valores-clave)
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -2170,6 +2602,11 @@ void proceso_1() {
 
 ## Referencias
 
+**Contenido de esta sección:**
+- [Registros ARM64 Importantes](#registros-arm64-importantes)
+- [Exception Syndrome Register (ESR_EL1) - Valores Clave](#exception-syndrome-register-esr_el1---valores-clave)
+- [Publicaciones y Referencias](#publicaciones-y-referencias)
+
 ### Registros ARM64 Importantes
 
 #### Registros de Control
@@ -2223,6 +2660,14 @@ void proceso_1() {
 ---
 
 ## Historial de Cambios
+
+**Contenido de esta sección:**
+- [v0.5 - Enero 25, 2026](#v05---enero-25-2026)
+- [v0.4 - Enero 21, 2026](#v04---enero-21-2026)
+- [v0.3.5 - Enero 20, 2026](#v035---enero-20-2026)
+- [v0.3 - Enero 2026](#v03---enero-2026)
+- [v0.2 - 2025](#v02---2025)
+- [v0.1 - 2025](#v01---2025)
 
 ### v0.5 - Enero 25, 2026
 - ✅ **Documentación Completa del Sistema**
