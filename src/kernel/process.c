@@ -245,17 +245,24 @@ void free_zombie() {
         if (process[i].state == PROCESS_ZOMBIE) {
             // kprintf("[REAPER] Limpiando PID %d\n", process[i].pid); // Debug opcional
 
-            /* 1. CRÍTICO: Devolver la memoria al Heap */
+            /* 1. Liberar la memoria dinámica de la pila del proceso */
             if (process[i].stack_addr != 0) {
-                kfree((void*)process[i].stack_addr);
+                kfree((void *)process[i].stack_addr);
                 process[i].stack_addr = 0;
             }
 
-            /* 2. Marcar el slot como reutilizable */
+            /* 2. Limpiar el resto de la estructura para evitar datos residuales */
+            process[i].pid = 0;
+            process[i].priority = 0;
+            process[i].cpu_time = 0;
+            process[i].wake_up_time = 0;
+            process[i].quantum = 0;
+            memset(process[i].name, 0, sizeof(process[i].name));
+
+            /* 3. Marcarlo como libre para que create_process() pueda reutilizarlo */
             process[i].state = PROCESS_UNUSED;
 
-            /* Decrementamos contador */
-            num_process--;
+            /* Nota: Si el proceso tuviera archivos abiertos, los cerraríamos aquí */
         }
     }
 }
