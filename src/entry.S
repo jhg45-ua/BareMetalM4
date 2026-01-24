@@ -20,6 +20,7 @@
 .global cpu_switch_to
 .global irq_handler_stub
 .global enable_interrupts
+.global disable_interrupts
 .global ret_from_fork
 .global exit
 .global el1_sync
@@ -119,6 +120,15 @@ cpu_switch_to:
  */
 enable_interrupts:
     msr daifclr, #2    /* Limpiar bit IRQ (bit 1) */
+    ret
+
+/**
+ * disable_interrupts - Deshabilita interrupciones IRQ
+ *
+ * Activa el bit I del registro DAIF para enmascarar IRQs.
+ */
+disable_interrupts:
+    msr daifset, #2
     ret
 
 /**

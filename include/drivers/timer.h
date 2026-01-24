@@ -60,6 +60,7 @@ extern void set_vbar_el1(void *);
 
 /* Habilita las interrupciones IRQ en el procesador (src/utils.S) */
 extern void enable_interrupts(void);
+extern void disable_interrupts(void);
 
 /* Tabla de vectores de excepciones (src/vectors.S) */
 extern void vectors(void);

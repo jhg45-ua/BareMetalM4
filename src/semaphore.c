@@ -65,9 +65,6 @@
 extern void spin_lock(volatile int *lock);
 extern void spin_unlock(volatile int *lock);
 
-/* Habilita interrupciones IRQ */
-extern void enable_interrupts(void);
-
 /* Spinlock global para proteger operaciones de semáforo */
 volatile int sem_lock = 0;
 
@@ -112,7 +109,10 @@ void sem_init(struct semaphore *s, int value) {
  *   - FIFO: Fairness - Primero en llegar, primero en ser atendido
  */
 void sem_wait(struct semaphore *s) {
-    /* 1. Adquirir spinlock para proteger el semáforo */
+    /* 1. ESCUDO: Apagamos interrupciones para que el Timer no nos corte */
+    disable_interrupts();
+
+    /* 2. Adquirir spinlock para proteger el semáforo */
     spin_lock(&sem_lock);
 
     if (s->count > 0) {
@@ -141,6 +141,7 @@ void sem_wait(struct semaphore *s) {
         /* CRÍTICO: Liberar el spinlock ANTES de dormir
            Si no liberamos aquí, nadie más puede hacer sem_signal() -> deadlock */
         spin_unlock(&sem_lock);
+        enable_interrupts();
 
         /* Ceder la CPU - El scheduler nos ignorará hasta que nos despierten
            NO consumimos CPU mientras esperamos (NO busy-wait) */
@@ -174,6 +175,7 @@ void sem_wait(struct semaphore *s) {
  *   - Esto evita race conditions: El despertado tiene el recurso garantizado
  */
 void sem_signal(struct semaphore *s) {
+    disable_interrupts();
     spin_lock(&sem_lock);
 
     if (s->head != nullptr) {
@@ -203,4 +205,5 @@ void sem_signal(struct semaphore *s) {
     }
     
     spin_unlock(&sem_lock);
+    enable_interrupts();
 }
