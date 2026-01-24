@@ -23,7 +23,7 @@
  *   - Configura permisos según nivel de privilegio (EL0/EL1)
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.4
+ * @version 0.5
  */
 
 #include "../../include/mm/vmm.h"

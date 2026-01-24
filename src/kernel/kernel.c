@@ -11,7 +11,7 @@
  *   - Shell del sistema
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.4
+ * @version 0.5
  */
 
 #include "../../include/drivers/io.h"

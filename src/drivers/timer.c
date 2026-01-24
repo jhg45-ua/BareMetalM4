@@ -49,7 +49,7 @@
  *   @endcode
  * 
  * @author Sistema Operativo Educativo
- * @version 0.4
+ * @version 0.5
  * @see timer.h para interfaz publica
  */
 

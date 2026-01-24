@@ -11,7 +11,7 @@
  *     periódicas que decrementan el quantum de los procesos
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.4
+ * @version 0.5
  */
 
 #ifndef TIMER_H

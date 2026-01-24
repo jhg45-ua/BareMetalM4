@@ -442,6 +442,8 @@ void kernel() {
 
 **Refactorización v0.3 → v0.4**: El código originalmente monolítico fue reorganizado en módulos especializados en enero de 2026. La versión 0.4 estandariza completamente la documentación y comentarios del código, mejorando significativamente la estructura y mantenibilidad del proyecto.
 
+**Mejoras v0.4 → v0.5**: La versión 0.5 (enero 2026) añade tres características avanzadas completamente documentadas: Round-Robin Scheduler con Quantum para multitarea preemptiva eficiente, Semáforos con Wait Queues eliminando busy-waiting, y Demand Paging para asignación de memoria bajo demanda mediante Page Fault handling.
+
 [↑ Volver a Tabla de Contenidos](#-tabla-de-contenidos)
 
 ---
@@ -1724,8 +1726,13 @@ struct pcb {
 
 **Campos nuevos en v0.4**:
 - `cpu_time`: Contador de tiempo de CPU para estadísticas
-- `block_reason`: Distingue entre diferentes tipos de bloqueo
+- `block_reason`: Distingue entre diferentes tipos de bloqueo (NONE, SLEEP, WAIT)
 - `exit_code`: Almacena valor de retorno del proceso
+
+**Campos adicionales en v0.5**:
+- `quantum`: Ticks restantes antes de preemption (Round-Robin)
+- `next`: Puntero para formar listas enlazadas en Wait Queues de semáforos
+- `wake_up_time`: Timestamp para sleep() sin busy-wait
 
 ### Algoritmo de Scheduling
 
@@ -2012,29 +2019,33 @@ void proceso_1() {
 ## Limitaciones y Mejoras Futuras
 [↑ Volver a Tabla de Contenidos](#-tabla-de-contenidos)
 
-### ✅ Características Implementadas (v0.4)
+### ✅ Características Implementadas (v0.5)
 - [x] Arquitectura modular con separación de subsistemas
 - [x] Asignación dinámica de memoria (kmalloc/kfree)
-- [x] Planificador expropiativo con aging
+- [x] **Planificador Round-Robin con Quantum** - **✅ IMPLEMENTADO en v0.5**
+- [x] **Semáforos con Wait Queues (sin busy-wait)** - **✅ IMPLEMENTADO en v0.5**
+- [x] **Demand Paging (asignación bajo demanda)** - **✅ IMPLEMENTADO en v0.5**
 - [x] Shell interactivo con múltiples comandos
-- [x] MMU con memoria virtual
+- [x] MMU con memoria virtual y tablas de páginas de 3 niveles
 - [x] Interrupciones de timer con GIC v2
-- [x] Sincronización con spinlocks y semáforos
+- [x] Sincronización con spinlocks y semáforos eficientes
 - [x] **Modo Usuario (EL0) con separación de privilegios**
 - [x] **Sistema de syscalls (SYS_WRITE, SYS_EXIT)**
 - [x] **Protección de memoria con manejo de excepciones**
 - [x] **Manejo robusto de fallos de segmentación**
-- [x] Documentación completa estilo Doxygen
+- [x] **Documentación completa estilo Doxygen en todos los archivos**
 - [x] Código estandarizado y profesional
 
 ### Fase 1: Mejoras Educativas (Siguientes)
 - [x] ~~Agregar syscalls (SVC exception)~~ - **✅ IMPLEMENTADO en v0.4**
 - [x] ~~Procesos de usuario (EL0)~~ - **✅ IMPLEMENTADO en v0.4**
 - [x] ~~Manejo de excepciones y fallos~~ - **✅ IMPLEMENTADO en v0.4**
+- [x] ~~Implementar wait queues en semáforos~~ - **✅ IMPLEMENTADO en v0.5**
+- [x] ~~Planificador Round-Robin con quantum~~ - **✅ IMPLEMENTADO en v0.5**
+- [x] ~~Demand Paging (Page Fault handling)~~ - **✅ IMPLEMENTADO en v0.5**
 - [ ] Expandir syscalls (read, open, close, fork)
-- [ ] Implementar wait queues en semáforos
 - [ ] Soporte para múltiples CPUs (spinlocks existentes)
-- [ ] Keyboard input vía UART (lectura)
+- [ ] Keyboard input vía UART (lectura) - Parcialmente implementado
 - [ ] Mejorar asignador (best-fit, estadísticas)
 
 ### Fase 2: Características Reales
@@ -2205,13 +2216,32 @@ void proceso_1() {
 
 ---
 
-**Última actualización**: Enero 21, 2026  
-**Versión**: 0.4  
+**Última actualización**: Enero 25, 2026  
+**Versión**: 0.5  
 **Refactorización**: Estructura modular, sistema de memoria dinámica, documentación completa y estandarización de código implementados (Enero 2026)
 
 ---
 
 ## Historial de Cambios
+
+### v0.5 - Enero 25, 2026
+- ✅ **Documentación Completa del Sistema**
+  - Documentación exhaustiva de todos los subsistemas principales
+  - Round-Robin Scheduler con Quantum completamente documentado
+  - Semáforos con Wait Queues (sin busy-wait) explicados en detalle
+  - Demand Paging con Page Fault handling documentado paso a paso
+  - Integración entre subsistemas claramente explicada
+  - Referencias cruzadas entre archivos y funciones
+  - Proceso de creación de usuario (`create_user_process()`) documentado
+  - Todas las funciones en process.c completamente documentadas
+
+- ✅ **Mejoras en Consistencia de Código**
+  - Estilo Doxygen consistente en todos los archivos C/H
+  - Secciones visuales (`/* === */`) estandarizadas
+  - Descripciones @details para todas las funciones principales
+  - Documentación de campos PCB (quantum, next, block_reason, wake_up_time)
+  - Ciclo de vida de procesos claramente documentado
+  - Integración con timer, scheduler y memoria explicada
 
 ### v0.4 - Enero 21, 2026
 - ✅ **Estandarización completa del código y documentación**

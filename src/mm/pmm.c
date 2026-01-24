@@ -12,7 +12,7 @@
  *     asignar una página física bajo demanda
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.4
+ * @version 0.5
  */
 
 #include "../../include/mm/pmm.h"

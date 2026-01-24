@@ -20,7 +20,7 @@
  *   - Wait queues para sincronización eficiente
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.4
+ * @version 0.5
  */
 
 #ifndef SCHED_H

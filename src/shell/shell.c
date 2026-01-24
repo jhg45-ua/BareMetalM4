@@ -12,7 +12,7 @@
  *     * test_page_fault: Demand paging
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.4
+ * @version 0.5
  */
 
 #include "../../include/sched.h"
@@ -60,7 +60,7 @@ void shell_task(void) {
     char command_buf[64];
     int idx = 0;
 
-    kprintf("\n[SHELL] Bienvenido a BareMetalM4 OS v0.4\n");
+    kprintf("\n[SHELL] Bienvenido a BareMetalM4 OS v0.5\n");
     kprintf("[SHELL] Escribe 'help' para ver comandos.\n");
     kprintf("> "); // Prompt
 
