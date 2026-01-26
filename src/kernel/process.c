@@ -12,7 +12,7 @@
  *     * wake_up_time para sleep() sin busy-wait
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.5
+ * @version 0.6
  */
 
 #include "../../include/sched.h"
@@ -138,7 +138,7 @@ long create_process(void (*fn)(void*), void *arg, int priority, const char *name
  * @return PID del proceso creado, -1 en caso de error
  * 
  * @details
- *   En BareMetalM4 (v0.5), como no hay separación de memoria virtual por proceso,
+ *   En BareMetalM4 (v0.6), como no hay separación de memoria virtual por proceso,
  *   todos los procesos son técnicamente hilos del kernel que comparten espacio de direcciones.
  *   
  *   Esta función es un wrapper sobre create_process() que pasa nullptr como argumento.
@@ -181,7 +181,7 @@ void init_process_system() {
     current_process = kproc;
     num_process = 1;
 
-    kprintf("   [PROC] Subsistema de procesos iniciado. PID 0 activo.\n");
+    kprintf("   [PROC v0.6] Subsistema de procesos iniciado (Round-Robin + Quantum). PID 0 activo.\n");
 }
 
 

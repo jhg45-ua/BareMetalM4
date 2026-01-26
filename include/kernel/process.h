@@ -43,7 +43,7 @@ long create_process(void (*fn)(void*), void *arg, int priority, const char *name
  * @return PID del proceso creado, -1 en caso de error
  * 
  * @details
- *   En BareMetalM4 (v0.5), como no hay separación de memoria virtual por proceso,
+ *   En BareMetalM4 (v0.6), como no hay separación de memoria virtual por proceso,
  *   todos los procesos son técnicamente hilos del kernel que comparten espacio de direcciones.
  *   
  *   Wrapper sobre create_process() que pasa NULL como argumento.

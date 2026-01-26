@@ -12,11 +12,11 @@
  *     asignar una página física bajo demanda
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.5
+ * @version 0.6
  */
 
 #include "../../include/mm/pmm.h"
-#include "../../include/utils//kutils.h"
+#include "../../include/utils/kutils.h"
 #include "../../include/drivers/io.h"
 
 /* Gestionaremos 128MB de RAM para usuarios por ahora */
@@ -41,7 +41,7 @@ void pmm_init(unsigned long start, unsigned long size) {
     /* Inicializamos enteramente a 0 (Libre) */
     memset(mem_map, 0, sizeof(mem_map));
 
-    kprintf("[PMM] Gestionando %d MB de RAM fisica desde 0x%x\n",
+    kprintf("[PMM v0.6] Gestionando %d MB de RAM física desde 0x%x (Demand Paging)\n",
             MEMORY_SIZE / (1024*1024), phys_mem_start);
 }
 
@@ -56,7 +56,7 @@ void pmm_init(unsigned long start, unsigned long size) {
  *   3. Calcula la dirección física real
  *   4. Realiza security zeroing (limpia la página con 0s)
  *   
- *   INTEGRACION CON DEMAND PAGING:
+ *   INTEGRACIÓN CON DEMAND PAGING:
  *   Esta función es llamada por handle_fault() en sys.c cuando
  *   se produce un Page Fault y se necesita asignar memoria bajo demanda.
  */
@@ -66,12 +66,12 @@ unsigned long get_free_page(void) {
         int byte_index = i / 8;
         int bit_index = i % 8;
 
-        /* Comprobamos si el bit esta libre (0) */
+        /* Comprobamos si el bit está libre (0) */
         if (! (mem_map[byte_index] & (1 << bit_index))) {
             /* ¡Encontrado! Lo marcamos como ocupado */
             mem_map[byte_index] |= (1 << bit_index);
 
-            /* Calculamos la direccion fisica real */
+            /* Calculamos la dirección física real */
             unsigned long page_addr = phys_mem_start + (i * PAGE_SIZE);
 
             /* Importante: Limpiamos la página (security zeroing) */

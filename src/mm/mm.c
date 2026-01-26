@@ -1,21 +1,21 @@
 /**
  * @file mm.c
- * @brief Implementacion del subsistema de memoria virtual (MMU)
+ * @brief Implementación del subsistema de memoria virtual (MMU)
  * 
  * @details
  *   Configura la MMU de ARM64 con:
- *   - Tablas de paginas L1 (bloques de 1 GB)
- *   - Identity mapping para perifericos y RAM
- *   - Activacion de MMU y caches
+ *   - Tablas de páginas L1 (bloques de 1 GB)
+ *   - Identity mapping para periféricos y RAM
+ *   - Activación de MMU y caches
  *   - Fundamento para Demand Paging: La MMU gestiona Page Faults
  *     que son capturados por handle_fault() en sys.c
  * 
  *   MAPA DE MEMORIA (QEMU virt):
- *   - 0x00000000 - 0x3FFFFFFF: Perifericos (Device memory)
+ *   - 0x00000000 - 0x3FFFFFFF: Periféricos (Device memory)
  *   - 0x40000000 - 0x7FFFFFFF: RAM del kernel (Normal memory)
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.5
+ * @version 0.6
  */
 
 #include "../../include/mm/mm.h"
@@ -92,7 +92,7 @@ void mem_init(unsigned long heap_start, unsigned long heap_size) {
     set_ttbr1_el1((unsigned long)kernel_pgd);
 
     /* 4. Activar MMU y Caches */
-    kprintf("   [MMU] Activando Traduccion Avanzada...\n");
+    kprintf("   [MMU] Activando Traducción Avanzada...\n");
     unsigned long sctlr = get_sctlr_el1();
     sctlr |= 1;       /* M: MMU Enable */
     sctlr |= (1<<2);  /* C: D-Cache Enable */

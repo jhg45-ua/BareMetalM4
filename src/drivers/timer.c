@@ -1,11 +1,11 @@
 /**
  * @file timer.c
- * @brief Inicializacion del timer y manejo de interrupciones
+ * @brief Inicialización del timer y manejo de interrupciones
  * 
  * @details
- *   Este archivo contiene la logica para:
+ *   Este archivo contiene la lógica para:
  *   - Inicializar el Generic Interrupt Controller (GIC)
- *   - Configurar el timer fisico ARM64
+ *   - Configurar el timer físico ARM64
  *   - Manejar las interrupciones del timer (multitarea expropiativa)
  *   - Integración con Round-Robin Scheduler: cada tick decrementa
  *     el quantum de los procesos mediante timer_tick() en scheduler.c
@@ -27,7 +27,7 @@
  *   - GICC_EOIR (0x010): Avisa fin de IRQ
  * 
  * @section TIMER_INTERRUPT_FLOW
- *   Flujo completo de una interrupcion del timer:
+ *   Flujo completo de una interrupción del timer:
  *   @code
  *   1. Timer decrementa contador (CNTP_TVAL_EL0)
  *   2. Llega a 0 -> genera IRQ (ID 30)
@@ -35,11 +35,11 @@
  *   4. irq_handler_stub (entry.S) guarda todos los registros
  *   5. irq_handler_stub() llama a handle_timer_irq()
  *   6. handle_timer_irq() lee GICC_IAR
- *      - Obtiene ID de la interrupcion (30 = timer)
+ *      - Obtiene ID de la interrupción (30 = timer)
  *   7. handle_timer_irq() escribe GICC_EOIR
- *      - CRITICO: avisa al GIC que terminamos
+ *      - CRÍTICO: avisa al GIC que terminamos
  *   8. handle_timer_irq() recargar CNTP_TVAL_EL0
- *      - Timer estara listo para siguiente tick
+ *      - Timer estará listo para siguiente tick
  *   9. handle_timer_irq() llama a schedule()
  *      - Planificador elige siguiente proceso
  *   10. schedule() llama a cpu_switch_to()
@@ -49,8 +49,8 @@
  *   @endcode
  * 
  * @author Sistema Operativo Educativo
- * @version 0.5
- * @see timer.h para interfaz publica
+ * @version 0.6
+ * @see timer.h para interfaz pública
  */
 
 #include "../../include/drivers/timer.h"

@@ -22,7 +22,7 @@
  *   - Terminación segura de procesos con fallos inválidos
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.5
+ * @version 0.6
  */
 
 #include "../../include/kernel/sys.h"

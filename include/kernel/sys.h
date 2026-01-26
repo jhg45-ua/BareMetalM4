@@ -9,7 +9,7 @@
  *   - Interfaz del dispatcher de syscalls
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.5
+ * @version 0.6
  */
 
 #ifndef SYS_H

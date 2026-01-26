@@ -12,7 +12,7 @@
  *     * test_page_fault: Demand paging
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.5
+ * @version 0.6
  */
 
 #include "../../include/sched.h"
@@ -61,7 +61,7 @@ void shell_task(void) {
     char command_buf[64];
     int idx = 0;
 
-    kprintf("\n[SHELL] Bienvenido a BareMetalM4 OS v0.5\n");
+    kprintf("\n[SHELL] Bienvenido a BareMetalM4 OS v0.6\n");
     kprintf("[SHELL] Escribe 'help' para ver comandos.\n");
     kprintf("> "); // Prompt
 
@@ -108,7 +108,7 @@ void shell_task(void) {
                 kprintf("Comandos disponibles:\n");
                 kprintf("  help               - Muestra esta ayuda\n");
                 kprintf("  ps                 - Lista los procesos (simulado)\n");
-                kprintf("  touch [archivo]    - Crea un archivo vacio\n");
+                kprintf("  touch [archivo]    - Crea un archivo vacío\n");
                 kprintf("  rm [archivo]       - Borra un archivo\n");
                 kprintf("  ls                 - Lista los archivos\n");
                 kprintf("  cat [archivo]      - Lee el contenido de un archivo\n");
@@ -196,7 +196,7 @@ void shell_task(void) {
             else if (k_strcmp(cmd, "test") == 0) {
                 /* Si no hay argumento o es "all", ejecutamos la batería completa original */
                 if (arg[0] == '\0' || k_strcmp(arg, "all") == 0) {
-                    kprintf("Iniciando bateria de tests general...\n");
+                    kprintf("Iniciando batería de tests general...\n");
                     test_memory();
 
                     // test_processes();
@@ -218,7 +218,7 @@ void shell_task(void) {
                 /* Argumento no reconocido */
                 else {
                     kprintf("Error: Modulo de test '%s' no existe.\n", arg);
-                    kprintf("Opciones validas: all, rr, sem, pf\n");
+                    kprintf("Opciones válidas: all, rr, sem, pf\n");
                 }
             }
             else if (k_strcmp(command_buf, "clear") == 0) {
@@ -227,7 +227,7 @@ void shell_task(void) {
                 kprintf("BareMetalM4 Shell\n");
             }
             else if (k_strcmp(command_buf, "panic") == 0) {
-                panic("Usuario solicito panico");
+                panic("Usuario solicitó pánico");
             }
             else if(k_strcmp(command_buf, "poweroff") == 0) {
                 kprintf("Apagando el sistema... Hasta luego!\n");

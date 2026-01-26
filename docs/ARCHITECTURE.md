@@ -20,12 +20,13 @@
 **BareMetalM4** es un kernel operativo educativo para **ARM64** (AArch64) que demuestra conceptos fundamentales y avanzados de sistemas operativos:
 
 - ✅ **Multitarea cooperativa y expropiatoria**
-- ✅ **Planificador Round-Robin con Quantum** (v0.5) - Preemption basada en tiempo
+- ✅ **Planificador Round-Robin con Quantum** (v0.6) - Preemption basada en tiempo
 - ✅ **Planificación con prioridades y envejecimiento (aging)**
 - ✅ **Manejo de interrupciones y excepciones**
-- ✅ **Sincronización: spinlocks y semáforos con Wait Queues** (v0.5) - Sin busy-wait
-- ✅ **Gestión de memoria virtual (MMU) con Demand Paging** (v0.5) - Asignación bajo demanda
+- ✅ **Sincronización: spinlocks y semáforos con Wait Queues** (v0.6) - Sin busy-wait
+- ✅ **Gestión de memoria virtual (MMU) con Demand Paging** (v0.6) - Asignación bajo demanda
 - ✅ **Modo Usuario (EL0) con syscalls y protección de memoria**
+- ✅ **Sistema de Archivos en Memoria (RamFS)** (v0.6) - VFS con persistencia en RAM
 - ✅ **I/O a través de UART QEMU con interrupciones**
 
 ### Plataforma Objetivo
@@ -55,7 +56,7 @@ Esta refactorización (enero 2026) dividió el código monolítico original en c
 BareMetalM4/
 ├── include/                    # Headers del sistema
 │   ├── sched.h                 # Definiciones de PCB y estados de proceso
-│   ├── semaphore.h             # Primitivas de sincronización con Wait Queues (v0.5)
+│   ├── semaphore.h             # Primitivas de sincronización con Wait Queues (v0.6)
 │   ├── types.h                 # Tipos básicos del sistema (uint64_t, etc.)
 │   ├── tests.h                 # Interfaz de funciones de prueba
 │   │
@@ -63,12 +64,20 @@ BareMetalM4/
 │   │   ├── io.h                #   Interfaz UART y kprintf
 │   │   └── timer.h             #   Configuración GIC y timer del sistema
 │   │
+│   ├── fs/                     # Headers del sistema de archivos (v0.6)
+│   │   └── vfs.h               #   Definiciones VFS: iNodos, superbloque, File Descriptors
+│   │
 │   ├── kernel/                 # Headers de módulos del kernel
-│   │   ├── kutils.h            #   Utilidades generales (panic, delay, strcmp)
 │   │   ├── process.h           #   Gestión de procesos y threads
-│   │   ├── scheduler.h         #   Planificador Round-Robin con Quantum (v0.5)
-│   │   ├── shell.h             #   Shell interactivo y comandos
-│   │   └── sys.h               #   Syscalls y Demand Paging (v0.5)
+│   │   ├── scheduler.h         #   Planificador Round-Robin con Quantum (v0.6)
+│   │   └── sys.h               #   Syscalls (write, exit, open, read) y Demand Paging (v0.6)
+│   │
+│   ├── shell/                  # Headers de interfaz de usuario (v0.6)
+│   │   └── shell.h             #   Shell interactivo con parser de argumentos
+│   │
+│   ├── utils/                  # Headers de utilidades (v0.6)
+│   │   ├── kutils.h            #   Utilidades generales (panic, delay, strcmp, k_strlen)
+│   │   └── tests.h             #   Interfaz de funciones de prueba
 │   │
 │   └── mm/                     # Headers de gestión de memoria
 │       ├── malloc.h            #   Asignador dinámico (kmalloc/kfree)
@@ -83,17 +92,20 @@ BareMetalM4/
 │   ├── locks.S                 # Spinlocks con LDXR/STXR (atomic ops)
 │   ├── utils.S                 # Utilidades de sistema (registros, timer)
 │   ├── mm_utils.S              # Funciones MMU en assembly (get/set registros)
-│   ├── semaphore.c             # Implementación de semáforos con Wait Queues (v0.5)
+│   ├── semaphore.c             # Implementación de semáforos con Wait Queues (v0.6)
 │   │
 │   ├── drivers/                # Controladores hardware
 │   │   ├── io.c                #   Driver UART y kprintf formateado
-│   │   └── timer.c             #   Inicialización GIC v2, timer físico, tick (v0.5)
+│   │   └── timer.c             #   Inicialización GIC v2, timer físico, tick (v0.6)
+│   │
+│   ├── fs/                     # Sistema de archivos (v0.6)
+│   │   └── ramfs.c             #   Implementación RamFS: iNodos, superbloque, operaciones
 │   │
 │   ├── kernel/                 # Módulos principales del kernel
 │   │   ├── kernel.c            #   Punto de entrada C e inicialización
 │   │   ├── process.c           #   Gestión de PCB, create_process, exit
-│   │   ├── scheduler.c         #   Round-Robin + Aging + Quantum (v0.5)
-│   │   └── sys.c               #   Syscalls (write, exit) y Demand Paging (v0.5)
+│   │   ├── scheduler.c         #   Round-Robin + Aging + Quantum (v0.6)
+│   │   └── sys.c               #   Syscalls (write, exit) y Demand Paging (v0.6)
 │   │
 │   ├── mm/                     # Gestión de memoria
 │   │   ├── mm.c                #   Configuración MMU, tablas de páginas, TLB
@@ -102,10 +114,10 @@ BareMetalM4/
 │   │   └── vmm.c               #   Gestor de páginas virtuales (map_page, demand paging)
 │   │
 │   ├── shell/                  # Interfaz de usuario
-│   │   └── shell.c             #   Shell con 11 comandos (v0.5: +test_rr, +test_sem, +test_demand)
+│   │   └── shell.c             #   Shell con parser de argumentos y comandos de filesystem (v0.6)
 │   │
 │   └── utils/                  # Utilidades generales
-│       ├── kutils.c            #   panic, delay, strcmp, strncpy, memcpy
+│       ├── kutils.c            #   panic, delay, strcmp, strncpy, memcpy, k_strlen (v0.6)
 │       └── tests.c             #   Procesos de prueba (user_task, kamikaze_test, demand_test)
 │
 ├── docs/                       # Documentación del proyecto
@@ -134,34 +146,39 @@ BareMetalM4/
 |---------------|--------|------------------------------------------------------------------|
 | `kernel.c`    | ~200   | Inicialización del sistema, loop principal WFI                   |
 | `process.c`   | ~280   | PCB management, create_process, create_user_process              |
-| `scheduler.c` | ~200   | Round-Robin + Aging + Quantum (v0.5), schedule(), timer_tick()   |
-| `sys.c`       | ~205   | Syscall dispatcher, Demand Paging handler (v0.5), handle_fault() |
+| `scheduler.c` | ~200   | Round-Robin + Aging + Quantum (v0.6), schedule(), timer_tick()   |
+| `sys.c`       | ~205   | Syscall dispatcher, Demand Paging handler (v0.6), handle_fault() |
 
 #### Drivers (.c)
 | Archivo   | Líneas | Descripción                                                     |
 |-----------|--------|-----------------------------------------------------------------|
 | `io.c`    | ~150   | UART driver, kprintf con formato %s/%d/%x/%c                    |
-| `timer.c` | ~200   | Configuración GIC v2, timer físico, tick para quantum (v0.5)    |
+| `timer.c` | ~200   | Configuración GIC v2, timer físico, tick para quantum (v0.6)    |
 
 #### Memory Management (.c)
 | Archivo    | Líneas | Descripción                                                      |
 |------------|--------|------------------------------------------------------------------|
 | `mm.c`     | ~250   | Configuración MMU, tablas L1/L2/L3, TLB invalidation             |
-| `pmm.c`    | ~180   | Physical Memory Manager: bitmap, get_free_page() (v0.5)          |
-| `vmm.c`    | ~200   | Virtual Memory Manager: map_page(), demand paging support (v0.5) |
+| `pmm.c`    | ~180   | Physical Memory Manager: bitmap, get_free_page() (v0.6)          |
+| `vmm.c`    | ~200   | Virtual Memory Manager: map_page(), demand paging support (v0.6) |
 | `malloc.c` | ~250   | kmalloc/kfree, heap dinámico, lista enlazada, coalescing         |
 
-#### User Interface & Tests (.c)
-| Archivo       | Líneas | Descripción                                                     |
-|---------------|--------|-----------------------------------------------------------------|
-| `shell.c`     | ~280   | Shell con 11 comandos (v0.5: +test_rr, +test_sem, +test_demand) |
-| `tests.c`     | ~250   | user_task (EL0), kamikaze_test, demand_test, semaphore tests    |
-| `kutils.c`    | ~100   | panic, delay, strcmp, strncpy, memset, memcpy                   |
-| `semaphore.c` | ~150   | sem_init, sem_wait, sem_signal con Wait Queues (v0.5)           |
+#### File System (.c)
+| Archivo    | Líneas | Descripción                                                      |
+|------------|--------|------------------------------------------------------------------|
+| `ramfs.c`  | ~244   | RamFS: superbloque, iNodos, FD, create/open/read/write/remove   |
 
-**Total de líneas de código**: ~3,000 líneas (sin comentarios y espacios en blanco)
-**Total bruto**: ~4,300 líneas (incluyendo documentación)
-**Incremento v0.4 → v0.5**: +700 líneas (~30% más funcionalidad)
+#### User Interface & Tests (.c)
+| Archivo       | Líneas | Descripción                                                          |
+|---------------|--------|----------------------------------------------------------------------|
+| `shell.c`     | ~320   | Shell con parser de argumentos y 16 comandos (v0.6: +touch/rm/ls/cat/write) |
+| `tests.c`     | ~250   | user_task (EL0), kamikaze_test, demand_test, semaphore tests        |
+| `kutils.c`    | ~110   | panic, delay, strcmp, strncpy, memset, memcpy, k_strlen (v0.6)      |
+| `semaphore.c` | ~150   | sem_init, sem_wait, sem_signal con Wait Queues (v0.6)               |
+
+**Total de líneas de código**: ~3,200 líneas (sin comentarios y espacios en blanco)
+**Total bruto**: ~4,600 líneas (incluyendo documentación)
+**Incremento v0.5 → v0.6**: +300 líneas (~10% más funcionalidad)
 
 ### Módulos del Kernel
 
@@ -193,7 +210,7 @@ BareMetalM4/
 | **Variables Globales** | `process[]`, `current_process`, `num_process`         |
 | `create_process()`     | Crea nuevos threads del kernel con prioridad y nombre |
 | `exit()`               | Termina el proceso actual (estado → ZOMBIE)           |
-| `free_zombie()`        | Limpia procesos zombie y libera recursos (v0.5.1)     |
+| `free_zombie()`        | Limpia procesos zombie y libera recursos (v0.6)     |
 | `schedule_tail()`      | Hook post-context-switch (futuras extensiones)        |
 
 **Estructura de Datos**:
@@ -210,14 +227,14 @@ struct pcb {
     unsigned long cpu_time;      // Tiempo de CPU usado
     int block_reason;            // NONE, SLEEP, WAIT
     int exit_code;               // Código de retorno
-    int quantum;                 // (v0.5) Ticks restantes antes de preemption
-    struct pcb *next;            // (v0.5) Para Wait Queues en semáforos
+    int quantum;                 // (v0.6) Ticks restantes antes de preemption
+    struct pcb *next;            // (v0.6) Para Wait Queues en semáforos
 };
 ```
 
 **Nota**: En la versión actual, `create_process()` utiliza `kmalloc()` para asignar dinámicamente las pilas de 4KB de cada proceso, en lugar de usar un array estático.
 
-**Limpieza de Procesos Zombie (v0.5.1)**: La función `free_zombie()` realiza una limpieza exhaustiva de los procesos terminados:
+**Limpieza de Procesos Zombie (v0.6)**: La función `free_zombie()` realiza una limpieza exhaustiva de los procesos terminados:
 
 ```c
 void free_zombie() {
@@ -244,7 +261,7 @@ void free_zombie() {
 }
 ```
 
-**Mejoras en v0.5.1**:
+**Mejoras en v0.6**:
 - ✅ Prevención de memory leaks mediante `kfree()` explícito
 - ✅ Limpieza completa del PCB para evitar datos residuales
 - ✅ Reinicio de todos los campos antes de marcar como UNUSED
@@ -279,24 +296,25 @@ void free_zombie() {
 
 **Comandos Disponibles**:
 
-| Comando            | Descripción         | Funcionalidad                                                                                       |
-|--------------------|---------------------|-----------------------------------------------------------------------------------------------------|
-| `help`             | Muestra ayuda       | Lista todos los comandos disponibles con descripción                                                |
-| `ps`               | Process Status      | Lista procesos activos con PID, prioridad, estado (RUN/RDY/SLEEP/WAIT/ZOMB), tiempo de CPU y nombre |
-| `test`             | Batería de tests    | Ejecuta test_memory(), test_processes(), test_scheduler()                                           |
-| `test_user_mode`   | Test modo usuario   | Crea proceso en EL0 que ejecuta syscalls (user_task)                                                |
-| `test_crash`       | Test protección     | Crea proceso kamikaze que intenta escribir en NULL para demostrar protección de memoria             |
-| `test_rr`          | Test Round-Robin    | **(v0.5)** Demuestra planificador con quantum y preemption basada en tiempo                         |
-| `test_sem`         | Test semáforos      | **(v0.5)** Valida Wait Queues sin busy-wait - procesos bloqueados no consumen CPU                   |
-| `test_page_fault`  | Test demand paging  | **(v0.5)** Provoca Page Fault para demostrar asignación de memoria bajo demanda                     |
-| `clear`            | Limpiar pantalla    | Limpia terminal usando códigos ANSI (ESC[2J ESC[H)                                                  |
-| `panic`            | Kernel Panic        | Provoca un kernel panic intencionalmente (demo)                                                     |
-| `poweroff`         | Apagar sistema      | Apaga QEMU usando system_off() (PSCI)                                                               |
+| Comando            | Descripción          | Funcionalidad                                                                                       |
+|--------------------|----------------------|-----------------------------------------------------------------------------------------------------|
+| `help`             | Muestra ayuda        | Lista todos los comandos disponibles con descripción                                                |
+| `ps`               | Process Status       | Lista procesos activos con PID, prioridad, estado (RUN/RDY/SLEEP/WAIT/ZOMB), tiempo de CPU y nombre |
+| `touch [archivo]`  | Crear archivo        | **(v0.6)** Crea un archivo vacío en el RamFS                                                        |
+| `rm [archivo]`     | Borrar archivo       | **(v0.6)** Elimina un archivo del disco virtual                                                     |
+| `ls`               | Listar archivos      | **(v0.6)** Muestra ID, tamaño (bytes) y nombre de todos los archivos                                |
+| `cat [archivo]`    | Leer archivo         | **(v0.6)** Muestra el contenido completo de un archivo                                              |
+| `write [archivo]`  | Escribir archivo     | **(v0.6)** Escribe texto predefinido en el archivo                                                  |
+| `test [módulo]`    | Tests modulares      | **(v0.6)** Acepta argumentos: `all` (completo), `rr` (quantum), `sem` (semáforos), `pf` (paging)   |
+| `clear`            | Limpiar pantalla     | Limpia terminal usando códigos ANSI (ESC[2J ESC[H)                                                  |
+| `panic`            | Kernel Panic         | Provoca un kernel panic intencionalmente (demo)                                                     |
+| `poweroff`         | Apagar sistema       | Apaga QEMU usando system_off() (PSCI)                                                               |
 
 **Características del Shell**:
 - ✅ Entrada interactiva con eco local
 - ✅ Soporte de backspace (127 / '\b')
 - ✅ Buffer de comando de 64 caracteres
+- ✅ **Parser de argumentos** (v0.6) - divide comando y parámetros
 - ✅ Sleep eficiente cuando no hay entrada (no consume CPU)
 - ✅ Prompt visual (`> `)
 - ✅ Mensajes de error para comandos desconocidos
@@ -306,13 +324,38 @@ void free_zombie() {
 > help
 Comandos disponibles:
   help               - Muestra esta ayuda
-  ps                 - Lista los procesos (simulado)
-  test               - Ejecutando test de memoria, procesos y scheduler
-  test_user_mode     - Ejecuta test del modo usuario
-  test_crash         - Ejecuta test de proteccion de memoria basica
+  ps                 - Lista los procesos
+  touch [archivo]    - Crea un archivo vacio
+  rm [archivo]       - Borra un archivo
+  ls                 - Lista los archivos
+  cat [archivo]      - Lee el contenido de un archivo
+  write [archivo]    - Escribe texto en un archivo
+  test [modulo]      - Ejecuta tests. Modulos: all, rr, sem, pf
   clear              - Limpia la pantalla
   panic              - Provoca un Kernel Panic
   poweroff           - Apaga el sistema
+
+> touch readme.txt
+[VFS] Archivo 'readme.txt' creado con éxito (Inodo 0).
+
+> write readme.txt
+Escritos 48 bytes en 'readme.txt'.
+
+> ls
+
+ID  |   Size (Bytes)   | Name
+----|------------------|----------------------
+0   |   48             | readme.txt
+
+> cat readme.txt
+
+Texto generado dinamicamente desde la Shell.
+
+> rm readme.txt
+[VFS] Archivo 'readme.txt' eliminado.
+
+> test rr
+[TEST] Iniciando test de Round-Robin con Quantum...
 
 > ps
 PID | Prio | State | Time | Name
@@ -321,16 +364,6 @@ PID | Prio | State | Time | Name
  1  |  1   | RDY   | 342  | Shell
  2  |  5   | SLEEP | 89   | proceso_1
  3  |  8   | RDY   | 156  | proceso_2
-
-> test_user_mode
-[KERNEL] Creando proceso de usuario...
-[USER] Hola desde EL0!
-[SYSCALL] Proceso solicitó salida con código 0
-
-> clear
-(pantalla limpiada)
-BareMetalM4 Shell
-> 
 ```
 
 ---
@@ -447,7 +480,126 @@ kfree(buffer);
 
 ---
 
-#### 8. **kernel** (Inicialización)
+#### 8. **vfs** (Sistema de Archivos Virtual)
+**Archivos**: `src/fs/ramfs.c`, `include/fs/vfs.h`
+
+**Responsabilidad**: Gestión de archivos en memoria RAM (RamFS)
+
+| Función         | Descripción                                        |
+|-----------------|----------------------------------------------------|
+| `ramfs_init()`  | Formatea disco virtual en RAM (1MB por defecto)    |
+| `vfs_create()`  | Crea archivo vacío, asigna iNodo                   |
+| `vfs_open()`    | Abre archivo, devuelve File Descriptor (FD)        |
+| `vfs_read()`    | Lee datos desde un FD abierto                      |
+| `vfs_write()`   | Escribe datos en un FD abierto                     |
+| `vfs_close()`   | Cierra archivo, libera FD                          |
+| `vfs_remove()`  | Elimina archivo, libera iNodo y datos en RAM       |
+| `vfs_ls()`      | Lista archivos del directorio raíz                 |
+
+**Estructuras de Datos**:
+
+```c
+/* iNodo: Representación de un archivo en el disco */
+typedef struct {
+    int id;                     // ID único (0-63)
+    int type;                   // FS_FILE o FS_DIRECTORY
+    int size;                   // Tamaño en bytes
+    unsigned long data_ptr;     // Puntero a datos en RAM
+    char name[FILE_NAME_LEN];   // Nombre del archivo (32 chars)
+    int is_used;                // 1=ocupado, 0=libre
+} inode_t;
+
+/* Superbloque: Información maestra del disco */
+typedef struct {
+    unsigned long total_size;   // Tamaño total del RamDisk
+    int free_inodes;            // iNodos disponibles
+    unsigned long start_addr;   // Dirección física base (0x41000000)
+    inode_t inodes[MAX_FILES];  // Tabla de iNodos (directorio raíz)
+} superblock_t;
+
+/* File Descriptor: Archivo abierto por un proceso */
+typedef struct {
+    inode_t *inode;             // Puntero al iNodo
+    int position;               // Offset de lectura/escritura
+    int flags;                  // Permisos (futuro)
+} file_t;
+```
+
+**Arquitectura del Filesystem**:
+
+```
+┌─────────────────────────────────────────────────┐
+│  RAMDISK (1MB en 0x41000000)                    │
+│                                                  │
+│  ┌─────────────────┐                            │
+│  │  Superbloque    │  ← Metadatos globales      │
+│  │  - free_inodes  │                            │
+│  │  - total_size   │                            │
+│  └─────────────────┘                            │
+│                                                  │
+│  ┌─────────────────┐                            │
+│  │  iNodo[0]       │  ← readme.txt              │
+│  │  - id: 0        │                            │
+│  │  - size: 42     │                            │
+│  │  - data_ptr: ───┼───┐                        │
+│  └─────────────────┘   │                        │
+│                         │                        │
+│  ┌─────────────────┐   │                        │
+│  │  iNodo[1]       │   │                        │
+│  │  - id: 1        │   │                        │
+│  │  - size: 128    │   │                        │
+│  │  - data_ptr: ───┼───┼───┐                    │
+│  └─────────────────┘   │   │                    │
+│                         │   │                    │
+│  ...                    │   │                    │
+│                         ▼   ▼                    │
+│  ┌──────────────────────────────────────────┐   │
+│  │  Bloques de Datos (4KB cada uno)        │   │
+│  │  [Datos readme.txt] [Datos config.sys]  │   │
+│  └──────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────┘
+```
+
+**Características**:
+- ✅ **Superbloque global** con gestión de 64 iNodos
+- ✅ **Bloques estáticos**: Cada archivo tiene 4KB (1 página)
+- ✅ **Directorio raíz plano** (sin subdirectorios)
+- ✅ **Identity mapping**: RamDisk mapeado en 0x41000000
+- ✅ **Tabla de File Descriptors**: Hasta 64 archivos abiertos simultáneamente
+- ✅ **Validación de nombres**: Previene duplicados
+
+**Limitaciones Actuales**:
+- 📌 Tamaño fijo: 4KB por archivo (MAX_FILE_SIZE)
+- 📌 Máximo 64 archivos (MAX_FILES)
+- 📌 Sin subdirectorios (directorio raíz plano)
+- 📌 Sin persistencia (datos volátiles)
+- 📌 Sin permisos o usuarios
+
+**Uso desde Kernel**:
+```c
+// En kernel_init()
+ramfs_init(0x41000000, 1 * 1024 * 1024); // 1MB
+
+// Crear archivo
+vfs_create("test.txt");
+
+// Escribir
+int fd = vfs_open("test.txt");
+vfs_write(fd, "Hola mundo", 10);
+vfs_close(fd);
+
+// Leer
+fd = vfs_open("test.txt");
+char buf[128];
+int bytes = vfs_read(fd, buf, 127);
+buf[bytes] = '\0';
+kprintf("%s\n", buf);
+vfs_close(fd);
+```
+
+---
+
+#### 9. **kernel** (Inicialización)
 **Archivo**: `src/kernel/kernel.c`
 
 **Responsabilidad**: Punto de entrada e inicialización del sistema
@@ -459,23 +611,29 @@ void kernel() {
     //    - Configura MMU y tablas de páginas
     //    - Inicializa heap de 64MB con kheap_init()
     
-    // 2. Inicializar sistema de procesos
+    // 2. Inicializar RamDisk (v0.6)
+    ramfs_init(0x41000000, 1 * 1024 * 1024); // 1MB en 0x41000000
+    //    - Formatea superbloque
+    //    - Inicializa tabla de iNodos (64 archivos)
+    //    - Crear archivos de prueba: readme.txt, config.sys
+    
+    // 3. Inicializar sistema de procesos
     init_process_system();
     //    - Configura proceso 0 (Kernel/IDLE)
     //    - Inicializa estructuras de PCB
     
-    // 3. Inicializar timer (GIC + interrupciones)
+    // 4. Inicializar timer (GIC + interrupciones)
     timer_init();
     
-    // 4. Ejecutar tests del sistema (opcional)
+    // 5. Ejecutar tests del sistema (opcional)
     test_memory();
     //    - Valida kmalloc/kfree
     //    - Verifica estado de MMU
     
-    // 5. Crear shell y procesos del sistema
+    // 6. Crear shell y procesos del sistema
     create_process(shell_task, 1, "Shell");
     
-    // 6. Loop principal (IDLE)
+    // 7. Loop principal (IDLE)
     while(1) {
         asm volatile("wfi");  // Wait For Interrupt
     }
@@ -500,6 +658,8 @@ void kernel() {
 
 **Mejoras v0.4 → v0.5**: La versión 0.5 (enero 2026) añade tres características avanzadas completamente documentadas: Round-Robin Scheduler con Quantum para multitarea preemptiva eficiente, Semáforos con Wait Queues eliminando busy-waiting, y Demand Paging para asignación de memoria bajo demanda mediante Page Fault handling.
 
+**Mejoras v0.5 → v0.6**: La versión 0.6 (enero 2026) introduce un **sistema de archivos completo en memoria (RamFS)** con soporte de VFS, iNodos, File Descriptors y operaciones estándar (create/open/read/write/close/remove). El shell ahora incluye parser de argumentos y 5 nuevos comandos de filesystem (`touch`, `rm`, `ls`, `cat`, `write`). Se añaden syscalls preparatorias (`SYS_OPEN`, `SYS_READ`) y se reorganiza la estructura de includes (`fs/`, `shell/`, `utils/`).
+
 [↑ Volver a Tabla de Contenidos](#-tabla-de-contenidos)
 
 ---
@@ -516,7 +676,8 @@ void kernel() {
 - [6. Subsistema de Sincronización](#6-subsistema-de-sincronización)
 - [7. Modo Usuario (User Mode) y Syscalls](#7-modo-usuario-user-mode-y-syscalls)
 - [8. Protección de Memoria y Manejo de Fallos](#8-protección-de-memoria-y-manejo-de-fallos)
-- [9. Demand Paging y Gestión de Page Faults (v0.5)](#9-demand-paging-y-gestión-de-page-faults-v05)
+- [9. Demand Paging y Gestión de Page Faults (v0.6)](#9-demand-paging-y-gestión-de-page-faults-v06)
+- [10. Sistema de Archivos (VFS/RamFS) (v0.6)](#10-sistema-de-archivos-vfsramfs-v06)
 
 ### 1. **Boot e Inicialización** (`boot.S`)
 ```
@@ -654,7 +815,7 @@ Ubicación: `src/kernel/scheduler.c::schedule()`
 
 #### Algoritmo Híbrido: Round-Robin con Quantum + Prioridades
 
-El planificador de v0.5 combina **Round-Robin con Quantum** (preemption forzosa) y **Prioridades con Aging** (fairness):
+El planificador de v0.6 combina **Round-Robin con Quantum** (preemption forzosa) y **Prioridades con Aging** (fairness):
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -890,12 +1051,12 @@ Ubicación: `src/semaphore.c`
 struct semaphore {
     volatile int count;      // Contador de recursos disponibles
     int lock;                // Spinlock protegiendo count
-    struct pcb *wait_head;   // (v0.5) Inicio de Wait Queue
-    struct pcb *wait_tail;   // (v0.5) Final de Wait Queue
+    struct pcb *wait_head;   // (v0.6) Inicio de Wait Queue
+    struct pcb *wait_tail;   // (v0.6) Final de Wait Queue
 };
 ```
 
-**Operaciones clásicas (Dijkstra) con Wait Queues (v0.5)**:
+**Operaciones clásicas (Dijkstra) con Wait Queues (v0.6)**:
 
 ```
 P() [sem_wait]:              V() [sem_signal]:
@@ -909,7 +1070,7 @@ Si count > 0:                 count++
     enable_interrupts()           Sacar proceso de Wait Queue
     return                        proceso->state = READY
 Sino:                         spin_unlock()
-    // NUEVO v0.5: Wait Queue  enable_interrupts()
+    // NUEVO v0.6: Wait Queue  enable_interrupts()
     Agregar proceso actual     
     a Wait Queue (FIFO)       Efecto: Despierta primer proceso
     proceso->state = BLOCKED   en espera (FIFO)
@@ -968,7 +1129,7 @@ CON disable_interrupts():
 | **Orden**      | No garantizado              | FIFO (justo)                    |
 | **IRQ Safety** | Sin protección              | Interrupciones deshabilitadas   |
 
-**Implementación Wait Queue (v0.5)**:
+**Implementación Wait Queue (v0.6)**:
 
 ```
 Wait Queue como lista enlazada FIFO:
@@ -1125,12 +1286,19 @@ move_to_user_mode:
 
 Los procesos de usuario solicitan servicios del kernel mediante la instrucción **SVC** (SuperVisor Call).
 
-**Syscalls Implementadas**:
+**Syscalls Implementadas y Preparatorias**:
 
-| Número | Nombre    | Descripción         | Argumentos          |
-|--------|-----------|---------------------|---------------------|
-| 0      | SYS_WRITE | Escribir en consola | x19 = char *buffer  |
-| 1      | SYS_EXIT  | Terminar proceso    | x19 = int exit_code |
+| Número | Nombre     | Descripción                | Argumentos                      | Estado          |
+|--------|------------|----------------------------|---------------------------------|-----------------|
+| 0      | SYS_WRITE  | Escribir en consola        | x19 = char *buffer              | ✅ Implementada |
+| 1      | SYS_EXIT   | Terminar proceso           | x19 = int exit_code             | ✅ Implementada |
+| 2      | SYS_OPEN   | Abrir archivo **(v0.6)**   | x0 = path, x1 = mode            | 🔄 Stub         |
+| 3      | SYS_READ   | Leer archivo **(v0.6)**    | x0 = fd, x1 = buf, x2 = size    | 🔄 Stub         |
+
+**Nota sobre Syscalls Preparatorias (v0.6)**: 
+`SYS_OPEN` y `SYS_READ` están definidas y tienen handlers stub que imprimen mensajes de debug. 
+No están conectadas al VFS aún - las operaciones de filesystem se realizan directamente desde 
+el kernel por ahora. Preparadas para extensión futura a procesos de usuario con acceso a archivos.
 
 **Convención de Llamada**:
 - `x8`: Número de syscall
@@ -1463,7 +1631,7 @@ void handle_fault(void) {
 
 ---
 
-### 9. **Demand Paging y Gestión de Page Faults** (v0.5)
+### 9. **Demand Paging y Gestión de Page Faults** (v0.6)
 
 **Contenido de esta sección:**
 - [Visión General](#visión-general-2)
@@ -1479,7 +1647,7 @@ void handle_fault(void) {
 
 #### Visión General
 
-BareMetalM4 v0.5 implementa **Demand Paging** (paginación por demanda), una técnica de gestión de memoria donde las páginas físicas solo se asignan cuando son accedidas por primera vez, no al crear el proceso.
+BareMetalM4 v0.6 implementa **Demand Paging** (paginación por demanda), una técnica de gestión de memoria donde las páginas físicas solo se asignan cuando son accedidas por primera vez, no al crear el proceso.
 
 **Concepto clave**: Asignación perezosa (lazy allocation)
 - Las páginas virtuales se marcan como "no presentes" en las tablas de páginas
@@ -1705,7 +1873,7 @@ El demand paging conecta tres componentes clave:
 
 #### Esquema de Traducción Multilevel (L1/L2/L3)
 
-BareMetalM4 v0.5 implementa un esquema completo de paginación de 3 niveles:
+BareMetalM4 v0.6 implementa un esquema completo de paginación de 3 niveles:
 
 ```
 DIRECCION VIRTUAL (48 bits) - Configuración con 4KB pages
@@ -2037,17 +2205,17 @@ void *stack = kmalloc(4096);  // 4KB de pila
 
 ### Limitaciones y Mejoras Futuras
 
-| Limitación Actual             | Estado en v0.5                       | Mejora Futura                         |
+| Limitación Actual             | Estado en v0.6                       | Mejora Futura                         |
 |-------------------------------|--------------------------------------|---------------------------------------|
 | **Protección entre procesos** | ❌ Todos comparten espacio virtual    | Tablas de páginas por proceso (TTBR0) |
-| **Paginación dinámica**       | ✅ **Implementado con Demand Paging** | Completado en v0.5                    |
+| **Paginación dinámica**       | ✅ **Implementado con Demand Paging** | Completado en v0.6                    |
 | **Swapping a disco**          | ❌ Sin soporte de disco               | Sistema de archivos + swap partition  |
 | **Copy-on-Write (COW)**       | ❌ No implementado                    | Para fork() eficiente                 |
 | **Estadísticas de memoria**   | ❌ Sin tracking                       | Contadores de uso RAM/páginas         |
 | **Validación de rangos**      | ❌ No verifica límites heap/stack     | Implementar límites por proceso       |
 | **Asignador first-fit**       | ⚠️ Funcional pero no óptimo          | Migrar a best-fit o slab allocator    |
-| **Tablas L1/L2/L3**           | ✅ **Implementado multinivel**        | Completado en v0.5                    |
-| **Gestión física separada**   | ✅ **PMM con bitmap implementado**    | Completado en v0.5                    |
+| **Tablas L1/L2/L3**           | ✅ **Implementado multinivel**        | Completado en v0.6                    |
+| **Gestión física separada**   | ✅ **PMM con bitmap implementado**    | Completado en v0.6                    |
 
 **Progreso v0.4 → v0.5**:
 - ✅ Paginación multilevel (L1/L2/L3)
@@ -2062,6 +2230,182 @@ void *stack = kmalloc(4096);  // 4KB de pila
 
 ---
 
+### 10. **Sistema de Archivos (VFS/RamFS)** (v0.6)
+
+**Contenido de esta sección:**
+- [Arquitectura del Filesystem](#arquitectura-del-filesystem-1)
+- [Flujo de Operaciones de Archivo](#flujo-de-operaciones-de-archivo)
+- [Inicialización del RamDisk](#inicialización-del-ramdisk-1)
+
+#### Arquitectura del Filesystem
+
+BareMetalM4 v0.6 implementa un **sistema de archivos virtual en memoria** (RamFS) que permite crear, leer, escribir y eliminar archivos directamente en RAM.
+
+**Componentes Principales**:
+
+```
+┌──────────────────────────────────────────────────────┐
+│                  KERNEL SPACE                        │
+│                                                       │
+│  ┌───────────────┐         ┌──────────────────┐     │
+│  │  Shell/Apps   │────────▶│  VFS API         │     │
+│  │  - touch      │         │  - vfs_create()  │     │
+│  │  - cat        │         │  - vfs_open()    │     │
+│  │  - write      │         │  - vfs_read()    │     │
+│  └───────────────┘         │  - vfs_write()   │     │
+│                            │  - vfs_close()   │     │
+│                            └────────┬─────────┘     │
+│                                     │               │
+│                            ┌────────▼─────────┐     │
+│                            │  RamFS Driver    │     │
+│                            │  - Superbloque   │     │
+│                            │  - iNodo mgmt    │     │
+│                            │  - FD table      │     │
+│                            └────────┬─────────┘     │
+└─────────────────────────────────────┼───────────────┘
+                                      │
+                            ┌─────────▼─────────┐
+                            │  RAMDISK          │
+                            │  0x41000000       │
+                            │  (1MB en RAM)     │
+                            └───────────────────┘
+```
+
+#### Flujo de Operaciones de Archivo
+
+**Creación de Archivo**:
+
+```
+Usuario: touch archivo.txt
+    │
+    ├─▶ shell.c: detecta comando "touch"
+    │
+    ├─▶ vfs_create("archivo.txt")
+    │       │
+    │       ├─ Verificar si existe (buscar en inodes[])
+    │       ├─ Buscar iNodo libre (is_used == 0)
+    │       ├─ Asignar iNodo:
+    │       │   - id = índice
+    │       │   - name = "archivo.txt"
+    │       │   - size = 0 (vacío)
+    │       │   - data_ptr = start_addr + (id * 4KB)
+    │       │   - is_used = 1
+    │       └─ Decrementar free_inodes
+    │
+    └─▶ Retorna 0 (éxito) o -1 (error)
+```
+
+**Lectura de Archivo**:
+
+```
+Usuario: cat archivo.txt
+    │
+    ├─▶ shell.c: detecta comando "cat"
+    │
+    ├─▶ fd = vfs_open("archivo.txt")
+    │       │
+    │       ├─ Buscar iNodo por nombre
+    │       ├─ Buscar slot libre en fd_table[]
+    │       ├─ Asignar FD:
+    │       │   - inode = puntero al iNodo
+    │       │   - position = 0 (inicio)
+    │       └─ Retorna índice (FD)
+    │
+    ├─▶ bytes = vfs_read(fd, buf, 127)
+    │       │
+    │       ├─ Obtener iNodo desde fd_table[fd]
+    │       ├─ Calcular bytes disponibles (size - position)
+    │       ├─ Copiar desde (data_ptr + position) a buf
+    │       ├─ Actualizar position += bytes_leídos
+    │       └─ Retorna bytes leídos
+    │
+    ├─▶ kprintf("%s", buf)
+    │
+    └─▶ vfs_close(fd)
+            │
+            └─ Limpiar fd_table[fd] (inode = NULL)
+```
+
+**Escritura de Archivo**:
+
+```
+Usuario: write archivo.txt
+    │
+    ├─▶ shell.c: detecta comando "write"
+    │
+    ├─▶ fd = vfs_open("archivo.txt")
+    │
+    ├─▶ bytes = vfs_write(fd, "texto...", len)
+    │       │
+    │       ├─ Obtener iNodo desde fd_table[fd]
+    │       ├─ Verificar espacio (MAX_FILE_SIZE - position)
+    │       ├─ Copiar desde buf a (data_ptr + position)
+    │       ├─ Actualizar position += bytes_escritos
+    │       ├─ Actualizar inode->size si position > size
+    │       └─ Retorna bytes escritos
+    │
+    └─▶ vfs_close(fd)
+```
+
+#### Inicialización del RamDisk
+
+**Ubicación**: `src/kernel/kernel.c`
+
+```c
+void kernel() {
+    /* 1. Inicializar sistema de memoria (MMU + Heap) */
+    init_memory_system();
+    
+    /* 2. Inicializar RamDisk en región segura de RAM */
+    ramfs_init(0x41000000, 1 * 1024 * 1024); // 1MB
+    //    - Formatea superbloque
+    //    - Marca todos los iNodos como libres (is_used = 0)
+    //    - Asigna data_ptr a cada iNodo (4KB estático)
+    //    - Inicializa fd_table[] (todos NULL)
+    
+    /* 3. Crear archivos de prueba (opcional) */
+    vfs_create("readme.txt");
+    vfs_create("config.sys");
+    
+    /* ... resto de inicialización ... */
+}
+```
+
+**Asignación de Memoria**:
+
+```
+Mapa de Memoria del RamDisk:
+────────────────────────────────────────
+0x41000000 - 0x41001000  →  iNodo 0 data (4KB)
+0x41001000 - 0x41002000  →  iNodo 1 data (4KB)
+0x41002000 - 0x41003000  →  iNodo 2 data (4KB)
+...
+0x4103F000 - 0x41040000  →  iNodo 63 data (4KB)
+
+Total: 64 archivos × 4KB = 256KB de datos
+      + Superbloque y metadatos
+      = ~1MB total
+```
+
+**Ventajas del Diseño**:
+- ✅ **Simplicidad**: Asignación estática, sin fragmentación
+- ✅ **Velocidad**: Acceso directo a RAM, sin I/O físico
+- ✅ **Determinístico**: Tamaño predecible, sin allocaciones dinámicas
+- ✅ **Educativo**: Fácil de entender y depurar
+
+**Limitaciones y Mejoras Futuras**:
+- 📌 **Tamaño fijo**: 4KB por archivo (considerar bloques dinámicos)
+- 📌 **Sin subdirectorios**: Implementar árbol de directorios
+- 📌 **Sin persistencia**: Añadir serialización a disco virtual
+- 📌 **Syscalls stub**: Conectar SYS_OPEN/SYS_READ al VFS
+- 📌 **Sin permisos**: Implementar usuarios y permisos (rwx)
+
+[↑ Volver a Componentes Principales](#componentes-principales)
+
+[↑ Volver a Tabla de Contenidos](#-tabla-de-contenidos)
+
+---
+
 ## Subsistema de Planificación
 [↑ Volver a Tabla de Contenidos](#-tabla-de-contenidos)
 
@@ -2069,7 +2413,7 @@ void *stack = kmalloc(4096);  // 4KB de pila
 - [Estados de Proceso](#estados-de-proceso)
 - [Estructura PCB Completa](#estructura-pcb-completa)
 - [Algoritmo de Scheduling](#algoritmo-de-scheduling)
-- [Mecanismo de Quantum (v0.5)](#mecanismo-de-quantum-v05)
+- [Mecanismo de Quantum (v0.6)](#mecanismo-de-quantum-v06)
 - [Tabla de Prioridades](#tabla-de-prioridades)
 - [Sistema de Despertar (Wake-up)](#sistema-de-despertar-wake-up)
 - [Sleep: Dormir un Proceso por Tiempo Determinado](#sleep-dormir-un-proceso-por-tiempo-determinado)
@@ -2174,7 +2518,7 @@ struct pcb {
 - `block_reason`: Distingue entre diferentes tipos de bloqueo (NONE, SLEEP, WAIT)
 - `exit_code`: Almacena valor de retorno del proceso
 
-**Campos adicionales en v0.5**:
+**Campos adicionales en v0.6**:
 - `quantum`: Ticks restantes antes de preemption (Round-Robin)
 - `next`: Puntero para formar listas enlazadas en Wait Queues de semáforos
 - `wake_up_time`: Timestamp para sleep() sin busy-wait
@@ -2185,10 +2529,10 @@ struct pcb {
 
 El scheduler implementa un **algoritmo híbrido** que combina:
 1. **Prioridades con Aging** (prevenir inanición)
-2. **Round-Robin con Quantum** (v0.5) - Preemption basada en tiempo
+2. **Round-Robin con Quantum** (v0.6) - Preemption basada en tiempo
 
 ```
-ALGORITMO: Prioridad + Aging + Round-Robin con Quantum (v0.5)
+ALGORITMO: Prioridad + Aging + Round-Robin con Quantum (v0.6)
 ═════════════════════════════════════════════════════════════
 
 ENTRADA: process[] con estados variados
@@ -2214,12 +2558,12 @@ Para cada proceso:
 Si next_pid == -1:  // Nadie disponible
     next_pid = 0    // Kernel IDLE por defecto
 
-FASE 3: PENALIZACIÓN + ASIGNACIÓN DE QUANTUM (v0.5)
+FASE 3: PENALIZACIÓN + ASIGNACIÓN DE QUANTUM (v0.6)
 ────────────────────────────────────────────────────
 Si next->priority < 10:
     next->priority += 2   // Baja prioridad del elegido
 
-// NUEVO en v0.5: Asignar quantum para Round-Robin
+// NUEVO en v0.6: Asignar quantum para Round-Robin
 next->quantum = DEFAULT_QUANTUM  // 5 ticks
 // El quantum se decrementa en timer_tick() cada interrupción
 // Cuando quantum llega a 0, se marca need_reschedule = 1
@@ -2235,7 +2579,7 @@ Si prev != next:
     cpu_switch_to(prev, next)   // Assembly context switch
 ```
 
-### Mecanismo de Quantum (v0.5)
+### Mecanismo de Quantum (v0.6)
 
 El **quantum** es el tiempo máximo que un proceso puede ejecutar antes de ser forzosamente desalojado:
 
@@ -2514,18 +2858,18 @@ void proceso_1() {
 [↑ Volver a Tabla de Contenidos](#-tabla-de-contenidos)
 
 **Contenido de esta sección:**
-- [✅ Características Implementadas (v0.5)](#-características-implementadas-v05)
+- [✅ Características Implementadas (v0.6)](#-características-implementadas-v06)
 - [Fase 1: Mejoras Educativas (Siguientes)](#fase-1-mejoras-educativas-siguientes)
 - [Fase 2: Características Reales](#fase-2-características-reales)
 - [Fase 3: Optimizaciones](#fase-3-optimizaciones)
 - [Diagrama de Flujo: Syscall desde User Mode](#diagrama-de-flujo-syscall-desde-user-mode)
 
-### ✅ Características Implementadas (v0.5)
+### ✅ Características Implementadas (v0.6)
 - [x] Arquitectura modular con separación de subsistemas
 - [x] Asignación dinámica de memoria (kmalloc/kfree)
-- [x] **Planificador Round-Robin con Quantum** - **✅ IMPLEMENTADO en v0.5**
-- [x] **Semáforos con Wait Queues (sin busy-wait)** - **✅ IMPLEMENTADO en v0.5**
-- [x] **Demand Paging (asignación bajo demanda)** - **✅ IMPLEMENTADO en v0.5**
+- [x] **Planificador Round-Robin con Quantum** - **✅ IMPLEMENTADO en v0.6**
+- [x] **Semáforos con Wait Queues (sin busy-wait)** - **✅ IMPLEMENTADO en v0.6**
+- [x] **Demand Paging (asignación bajo demanda)** - **✅ IMPLEMENTADO en v0.6**
 - [x] Shell interactivo con múltiples comandos
 - [x] MMU con memoria virtual y tablas de páginas de 3 niveles
 - [x] Interrupciones de timer con GIC v2
@@ -2541,9 +2885,9 @@ void proceso_1() {
 - [x] ~~Agregar syscalls (SVC exception)~~ - **✅ IMPLEMENTADO en v0.4**
 - [x] ~~Procesos de usuario (EL0)~~ - **✅ IMPLEMENTADO en v0.4**
 - [x] ~~Manejo de excepciones y fallos~~ - **✅ IMPLEMENTADO en v0.4**
-- [x] ~~Implementar wait queues en semáforos~~ - **✅ IMPLEMENTADO en v0.5**
-- [x] ~~Planificador Round-Robin con quantum~~ - **✅ IMPLEMENTADO en v0.5**
-- [x] ~~Demand Paging (Page Fault handling)~~ - **✅ IMPLEMENTADO en v0.5**
+- [x] ~~Implementar wait queues en semáforos~~ - **✅ IMPLEMENTADO en v0.6**
+- [x] ~~Planificador Round-Robin con quantum~~ - **✅ IMPLEMENTADO en v0.6**
+- [x] ~~Demand Paging (Page Fault handling)~~ - **✅ IMPLEMENTADO en v0.6**
 - [ ] Expandir syscalls (read, open, close, fork)
 - [ ] Soporte para múltiples CPUs (spinlocks existentes)
 - [ ] Keyboard input vía UART (lectura) - Parcialmente implementado
@@ -2735,6 +3079,7 @@ void proceso_1() {
 ## Historial de Cambios
 
 **Contenido de esta sección:**
+- [v0.6 - Enero 26, 2026](#v06---enero-26-2026)
 - [v0.5.1 - Enero 24, 2026](#v051---enero-24-2026)
 - [v0.5 - Enero 25, 2026](#v05---enero-25-2026)
 - [v0.4 - Enero 21, 2026](#v04---enero-21-2026)
@@ -2742,6 +3087,119 @@ void proceso_1() {
 - [v0.3 - Enero 2026](#v03---enero-2026)
 - [v0.2 - 2025](#v02---2025)
 - [v0.1 - 2025](#v01---2025)
+
+### v0.6 - Enero 26, 2026
+
+**Commits**: 
+- `2014972` - Preparación syscalls (SYS_OPEN, SYS_READ)
+- `3c111e0` - Reorganización de directorios (shell/, utils/, fs/)
+- `bb63405` - Implementación básica de archivos (VFS + RamFS)
+- `6bb6a5c` - Sistema completo + parser de comandos en shell
+
+- ✅ **Sistema de Archivos Virtual (VFS) con RamFS**
+  - Implementación completa de filesystem en memoria RAM (1MB en 0x41000000)
+  - Superbloque global con gestión de hasta 64 iNodos
+  - File Descriptors para archivos abiertos (hasta 64 simultáneos)
+  - Directorio raíz plano con nombres de archivo de 32 caracteres
+  - Bloques estáticos de 4KB por archivo (MAX_FILE_SIZE)
+  - Identity mapping del RamDisk en región segura de memoria
+
+- ✅ **Operaciones de Filesystem**
+  - `vfs_create(name)` - Crear archivos vacíos, asignar iNodo
+  - `vfs_open(name)` - Abrir archivo y obtener File Descriptor
+  - `vfs_read(fd, buf, count)` - Leer desde FD con offset
+  - `vfs_write(fd, buf, count)` - Escribir a FD con offset
+  - `vfs_close(fd)` - Cerrar archivo y liberar FD
+  - `vfs_remove(name)` - Eliminar archivo y liberar recursos
+  - `vfs_ls()` - Listar directorio raíz con ID, tamaño y nombre
+
+- ✅ **Comandos de Shell para Filesystem**
+  - `touch [archivo]` - Crear archivo vacío en RamFS
+  - `rm [archivo]` - Eliminar archivo del disco virtual
+  - `ls` - Listar archivos con ID, tamaño (bytes) y nombre
+  - `cat [archivo]` - Leer y mostrar contenido completo
+  - `write [archivo]` - Escribir texto predefinido en archivo
+  - Parser de comandos mejorado con soporte de argumentos
+
+- ✅ **Tests Modulares con Argumentos**
+  - Comando `test [módulo]` acepta parámetros específicos:
+    - `test all` - Batería completa de tests del sistema
+    - `test rr` - Test de Round-Robin con Quantum (v0.6)
+    - `test sem` - Test de Semáforos con Wait Queues (v0.6)
+    - `test pf` - Test de Demand Paging con Page Faults (v0.6)
+  - Mensajes de error para módulos no reconocidos
+
+- ✅ **Syscalls Preparatorias para Filesystem**
+  - `SYS_OPEN` (número 2) - Handler stub con debug output
+  - `SYS_READ` (número 3) - Handler stub con debug output
+  - Preparadas para conexión futura con VFS desde procesos de usuario
+  - Actualmente las operaciones de filesystem se realizan desde kernel
+
+- ✅ **Reorganización de Estructura del Proyecto**
+  - Nuevo directorio `fs/` para código de sistema de archivos
+  - Headers `include/fs/vfs.h` con definiciones de iNodos y superbloque
+  - Headers movidos a subdirectorios especializados:
+    - `include/shell/shell.h` - Interfaz del shell
+    - `include/utils/kutils.h` - Utilidades generales
+    - `include/utils/tests.h` - Funciones de prueba
+  - Actualización de includes en todos los archivos afectados
+  - Mejor separación de responsabilidades y modularidad
+
+- ✅ **Nuevas Utilidades del Kernel**
+  - `k_strlen(str)` - Calcular longitud de cadena (src/utils/kutils.c)
+  - Necesaria para operaciones de filesystem y validación de nombres
+  - Implementación sin libc, compatible con bare-metal
+
+- ✅ **Mejoras en Documentación (ARCHITECTURE.md)**
+  - Nueva sección 8 (vfs) en "Módulos del Kernel"
+  - Nueva sección 10 en "Componentes Principales"
+  - Diagramas de arquitectura del filesystem con componentes
+  - Diagramas de flujo para operaciones de archivo (create, open, read, write)
+  - Tabla actualizada de comandos del shell con ejemplos de uso
+  - Tabla de syscalls actualizada con SYS_OPEN y SYS_READ
+  - Actualización de totales de líneas de código (~+300 líneas)
+
+**Archivos Nuevos**: 
+- `include/fs/vfs.h` (58 líneas) - Definiciones VFS
+- `src/fs/ramfs.c` (244 líneas) - Implementación RamFS
+
+**Archivos Modificados**:
+- `include/kernel/sys.h` - Añadidas SYS_OPEN (2) y SYS_READ (3)
+- `include/utils/kutils.h` - Añadido prototipo k_strlen()
+- `src/kernel/sys.c` - Handlers stub para nuevas syscalls
+- `src/kernel/kernel.c` - Inicialización de RamDisk con ramfs_init()
+- `src/shell/shell.c` - Parser de argumentos y 5 comandos de filesystem
+- `src/utils/kutils.c` - Implementación de k_strlen()
+- `Makefile` - Añadido src/fs/ramfs.c a compilación
+- `docs/ARCHITECTURE.md` - 9 secciones actualizadas con v0.6
+
+**Incremento de Código**:
+- v0.5 → v0.6: +~300 líneas (~10% más funcionalidad)
+- Total v0.6: ~3,500 líneas de código (sin comentarios)
+- Total bruto: ~4,600 líneas (incluyendo documentación)
+
+**Características del Sistema de Archivos**:
+- Dirección base: 0x41000000 (mapeado en memoria virtual)
+- Tamaño total: 1MB (1,048,576 bytes)
+- Capacidad: 64 archivos de 4KB cada uno
+- Archivos de prueba: readme.txt, config.sys (creados en boot)
+- Gestión de iNodos con verificación de nombres duplicados
+- File Descriptors con offset de lectura/escritura
+
+**Limitaciones Conocidas**:
+- 📌 Tamaño fijo de archivo: 4KB máximo por archivo
+- 📌 Sin subdirectorios: directorio raíz plano
+- 📌 Sin persistencia: datos volátiles en RAM
+- 📌 Syscalls preparatorias: SYS_OPEN/SYS_READ no conectadas al VFS
+- 📌 Sin permisos: no hay control de acceso ni usuarios
+- 📌 Sin fragmentación: bloques estáticos asignados al inicio
+
+**Ventajas del Diseño**:
+- ✅ Simplicidad: asignación estática, sin fragmentación
+- ✅ Velocidad: acceso directo a RAM, sin I/O físico
+- ✅ Determinístico: tamaño predecible por archivo
+- ✅ Educativo: fácil de entender y depurar
+- ✅ Eficiente: operaciones O(n) con n=64 máximo
 
 ### v0.5.1 - Enero 24, 2026
 - ✅ **Mejora en Sincronización: Protección contra Race Conditions**

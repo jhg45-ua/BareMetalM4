@@ -10,7 +10,7 @@
  *   - long: 64 bits (diferente a x86 donde es 32 bits)
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.5
+ * @version 0.6
  */
 
 #ifndef TYPES_H

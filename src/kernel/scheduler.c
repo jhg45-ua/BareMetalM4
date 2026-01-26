@@ -23,7 +23,7 @@
  *   - timer_tick() despierta procesos cuando wake_up_time llega
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.5
+ * @version 0.6
  */
 
 #include "../../include/sched.h"

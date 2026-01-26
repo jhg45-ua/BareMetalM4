@@ -48,7 +48,7 @@
  *   - ❌ Solo para sistemas simples/educativos
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.5
+ * @version 0.6
  * @see semaphore.h para interfaz pública
  */
 

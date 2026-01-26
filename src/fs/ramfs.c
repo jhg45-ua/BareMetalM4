@@ -1,7 +1,7 @@
 /**
-* @file ramfs.c
+ * @file ramfs.c
  * @brief Implementación del Sistema de Ficheros en Memoria (RamFS)
- * * @details
+ * @details
  * Gestiona un disco virtual en la memoria RAM:
  * - Superbloque global
  * - Gestión de iNodos
@@ -9,7 +9,7 @@
  */
 
 #include "../../include/fs/vfs.h"
-#include "../../include/utils//kutils.h"
+#include "../../include/utils/kutils.h"
 #include "../../include/drivers/io.h"
 
 /* ========================================================================== */
@@ -32,7 +32,7 @@ static file_t fd_table[MAX_FILES];
  * @param size Tamaño total en bytes
  */
 void ramfs_init(unsigned long start_addr, unsigned long size) {
-    kprintf("   [VFS] Formateando RamDisk en 0x%x (Tamano: %d KB)...\n", start_addr, size / 1024);
+    kprintf("   [VFS v0.6] Formateando RamDisk en 0x%x (Tamaño: %d KB)...\n", start_addr, size / 1024);
 
     ram_disk.start_addr = start_addr;
     ram_disk.total_size = size;
@@ -46,10 +46,10 @@ void ramfs_init(unsigned long start_addr, unsigned long size) {
         ram_disk.inodes[i].type = FS_FILE;
         memset(ram_disk.inodes[i].name, 0, sizeof(ram_disk.inodes[i].name));
 
-        /* Asignacion de bloques estatica: Cada archivo tiene 1 página (4KB) */
+        /* Asignación de bloques estática: Cada archivo tiene 1 página (4KB) */
         ram_disk.inodes[i].data_ptr = start_addr + (i * MAX_FILE_SIZE);
     }
-    kprintf("   [VFS] RamDisk montado con exito. iNodos libres: %d\n", ram_disk.free_inodes);
+    kprintf("   [VFS v0.6] RamDisk montado con éxito. iNodos libres: %d / %d\n", ram_disk.free_inodes, MAX_FILES);
 }
 
 /**
@@ -76,7 +76,7 @@ int vfs_create(const char *name) {
         if (!ram_disk.inodes[i].is_used) {
             /* Encontrado, ocupar iNodo */
             ram_disk.inodes[i].is_used = 1;
-            ram_disk.inodes[i].size = 0; /* El archivo está vacio */
+            ram_disk.inodes[i].size = 0; /* El archivo está vacío */
 
             /* Copiar nombre (con límite de seguridad) */
             int name_len = k_strlen(name);
@@ -86,7 +86,7 @@ int vfs_create(const char *name) {
             ram_disk.inodes[i].name[name_len] = '\0';
 
             ram_disk.free_inodes--;
-            kprintf("[VFS] Archivo '%s' creado con exito (Inodo %d).\n", name, i);
+            kprintf("[VFS] Archivo '%s' creado con éxito (Inodo %d).\n", name, i);
             return 0;
         }
     }
@@ -112,7 +112,7 @@ void vfs_ls(void) {
     }
 
     if (count == 0) {
-        kprintf(" (Directorio vacio)\n");
+        kprintf(" (Directorio vacío)\n");
     }
     kprintf("\n");
 }
@@ -228,10 +228,10 @@ int vfs_remove(const char *name) {
             /* 2. Borrar el nombre (opcional de seguridad) */
             memset(ram_disk.inodes[i].name, 0, FILE_NAME_LEN);
 
-            /* 3. Limpiar los datos de la ram fisicos en RAM (security zeroing) */
+            /* 3. Limpiar los datos físicos en RAM (security zeroing) */
             memset((void*)ram_disk.inodes[i].data_ptr, 0, MAX_FILE_SIZE);
 
-            /* 4. Añadir el iNodo libre a al contador */
+            /* 4. Añadir el iNodo libre al contador */
             ram_disk.free_inodes++;
             kprintf("[VFS] Archivo '%s' eliminado.\n", name);
             return 0;

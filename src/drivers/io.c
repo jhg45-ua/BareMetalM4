@@ -1,15 +1,15 @@
 /**
  * @file io.c
- * @brief Implementacion de entrada/salida y funciones de impresion
+ * @brief Implementación de entrada/salida y funciones de impresión
  * 
  * @details
  *   Implementa:
  *   - UART de QEMU virt (simple, sin control de flujo)
- *   - Funciones basicas uart_putc() y uart_puts()
+ *   - Funciones básicas uart_putc() y uart_puts()
  *   - kprintf() con soporte para %c, %s, %d, %x
  * 
  *   LA UART EN QEMU:
- *   Direccion: 0x09000000 (definido en link.ld)
+ *   Dirección: 0x09000000 (definido en link.ld)
  *   Escribir en esta direccion envia caracteres a la consola.
  *   Es una UART muy simplificada, sin:
  *   - Status registers (no verificamos si esta ocupada)
@@ -17,8 +17,8 @@
  *   - Interrupciones (polling en lugar de event-driven)
  * 
  * @author Sistema Operativo Educativo
- * @version 0.5
- * @see io.h para interfaz publica
+ * @version 0.6
+ * @see io.h para interfaz pública
  */
 
 #include <stdarg.h>
@@ -134,7 +134,7 @@ void print_num(long val, int base) {
     int i = 0;
     int sign = 0;
 
-    /* Manejo de numeros negativos (solo para base 10) */
+    /* Manejo de números negativos (solo para base 10) */
     if (base == 10 && val < 0) {
         sign = 1;
         val = -val;
@@ -146,7 +146,7 @@ void print_num(long val, int base) {
         return;
     }
 
-    /* Division repetida para extraer digitos */
+    /* División repetida para extraer dígitos */
     unsigned long uval = (unsigned long)val;
 
     while (uval > 0) {
