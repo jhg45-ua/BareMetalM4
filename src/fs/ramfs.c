@@ -203,3 +203,41 @@ int vfs_read(const int fd, char *buf, int count) {
     return bytes_to_read;
 }
 
+/**
+ * @brief Cierra un archivo abierto (Libera el File Descriptor)
+ */
+int vfs_close(int fd) {
+    if (fd < 0 || fd >= MAX_FILES || fd_table[fd].inode == nullptr) return -1;
+
+    /* Limpiar el slot para que pueda ser reutilizado */
+    fd_table[fd].inode = nullptr;
+    fd_table[fd].position = 0;
+    return 0;
+}
+
+/**
+ * @brief Elimina un archivo del disco (Libera el Inodo)
+ */
+int vfs_remove(const char *name) {
+    for (int i = 0; i < MAX_FILES; i++) {
+        if (ram_disk.inodes[i].is_used && k_strcmp(ram_disk.inodes[i].name, name) == 0) {
+            /* 1. Marcar inodo como libre */
+            ram_disk.inodes[i].is_used = 0;
+            ram_disk.inodes[i].size = 0;
+
+            /* 2. Borrar el nombre (opcional de seguridad) */
+            memset(ram_disk.inodes[i].name, 0, FILE_NAME_LEN);
+
+            /* 3. Limpiar los datos de la ram fisicos en RAM (security zeroing) */
+            memset((void*)ram_disk.inodes[i].data_ptr, 0, MAX_FILE_SIZE);
+
+            /* 4. Añadir el iNodo libre a al contador */
+            ram_disk.free_inodes++;
+            kprintf("[VFS] Archivo '%s' eliminado.\n", name);
+            return 0;
+        }
+    }
+    kprintf("[VFS] Error: Archivo '%s' no existe.\n", name);
+    return -1;
+}
+

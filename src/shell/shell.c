@@ -82,18 +82,38 @@ void shell_task(void) {
             uart_putc('\n'); // Salto de línea visual
             command_buf[idx] = '\0'; // Terminador de string
 
+            /* --- PARSER DEL COMANDO (Dividir en Comando y Argumento) --- */
+            char cmd[16] = {0};
+            char arg[32] = {0};
+            int i = 0, j = 0;
+
+            /* Leer la primera palabra (el comando) */
+            while (command_buf[i] != ' ' && command_buf[i] != '\0' && i < 15) {
+                cmd[i] = command_buf[i];
+                i++;
+            }
+            cmd[i] = '\0';
+
+            /* Si hay un espacio, lo que sigue es el argumento */
+            if (command_buf[i] == ' ') {
+                i++; /* Saltar el espacio */
+                while (command_buf[i] != '\0' && j < 31) {
+                    arg[j++] = command_buf[i++];
+                }
+            }
+            arg[j] = '\0';
+
             /* --- EJECUCIÓN DE COMANDOS --- */
             if (k_strcmp(command_buf, "help") == 0) {
                 kprintf("Comandos disponibles:\n");
                 kprintf("  help               - Muestra esta ayuda\n");
                 kprintf("  ps                 - Lista los procesos (simulado)\n");
-                kprintf("  ls                 - Lista los archivos del directorio raiz\n");
-                kprintf("  test               - Ejecutando test de memoria, procesos y scheduler\n");
-                kprintf("  test_user_mode     - Ejecuta test del modo usuario\n");
-                kprintf("  test_crash         - Ejecuta test de proteccion de memoria basica\n");
-                kprintf("  test_rr            - Ejecuta test de nuevo scheduler con Round-Robin y Quantum\n");
-                kprintf("  test_sem           - Ejecuta test de Wait Queues en semaforos\n");
-                kprintf("  test_page_default  - Ejecuta test de demand paging\n");
+                kprintf("  touch [archivo]    - Crea un archivo vacio\n");
+                kprintf("  rm [archivo]       - Borra un archivo\n");
+                kprintf("  ls                 - Lista los archivos\n");
+                kprintf("  cat [archivo]      - Lee el contenido de un archivo\n");
+                kprintf("  write [archivo]    - Escribe texto en un archivo\n");
+                kprintf("  test [modulo]      - Ejecuta tests. Modulos: all, rr, sem, pf\n");
                 kprintf("  clear              - Limpia la pantalla\n");
                 kprintf("  panic              - Provoca un Kernel Panic\n");
                 kprintf("  poweroff           - Apaga el sistema\n");
@@ -136,55 +156,70 @@ void shell_task(void) {
                 }
                 kprintf("\n");
             }
-            else if (k_strcmp(command_buf, "ls") == 0) {
+            else if (k_strcmp(cmd, "ls") == 0) {
                 vfs_ls();
             }
-            else if (k_strcmp(command_buf, "cat") == 0) {
-                /* Simulamos 'cat readme.txt' */
-                int fd = vfs_open("readme.txt");
-                if (fd >= 0) {
-                    char read_buf[128];
-                    int bytes = vfs_read(fd, read_buf, 127);
-                    read_buf[bytes] = '\0'; /* Terminador de string */
-                    kprintf("\n--- Contenido de readme.txt ---\n");
-                    kprintf("%s\n", read_buf);
-                    kprintf("-------------------------------\n");
-                    // Nota: Aquí haríamos un vfs_close(fd) en un sistema real
+            else if (k_strcmp(cmd, "touch") == 0) {
+                if (arg[0] == '\0') kprintf("Uso: touch [nombre_archivo]\n");
+                else vfs_create(arg);
+            }
+            else if (k_strcmp(cmd, "rm") == 0) {
+                if (arg[0] == '\0') kprintf("Uso: rm [nombre_archivo]\n");
+                else vfs_remove(arg);
+            }
+            else if (k_strcmp(cmd, "cat") == 0) {
+                if (arg[0] == '\0') kprintf("Uso: cat [nombre_archivo]\n");
+                else {
+                    int fd = vfs_open(arg);
+                    if (fd >= 0) {
+                        char read_buf[128];
+                        int bytes = vfs_read(fd, read_buf, 127);
+                        read_buf[bytes] = '\0';
+                        kprintf("\n%s\n", read_buf);
+                        vfs_close(fd); /* <-- IMPORTANTE: Cerramos el archivo */
+                    }
                 }
             }
-            else if (k_strcmp(command_buf, "write") == 0) {
-                /* Escribimos un texto en readme.txt */
-                int fd = vfs_open("readme.txt");
-                if (fd >= 0) {
-                    const char *msg = "Hola desde el Tema 5. Este fichero vive en la RAM.\n";
-                    int len = k_strlen(msg);
-                    vfs_write(fd, msg, len);
-                    kprintf("[SHELL] Escritos %d bytes en 'readme.txt'\n", len);
+            else if (k_strcmp(cmd, "write") == 0) {
+                if (arg[0] == '\0') kprintf("Uso: write [nombre_archivo]\n");
+                else {
+                    const int fd = vfs_open(arg);
+                    if (fd >= 0) {
+                        const char *msg = "Texto generado dinamicamente desde la Shell.\n";
+                        int len = k_strlen(msg);
+                        vfs_write(fd, msg, len);
+                        kprintf("Escritos %d bytes en '%s'.\n", len, arg);
+                        vfs_close(fd); /* <-- IMPORTANTE */
+                    }
                 }
             }
-            else if (k_strcmp(command_buf, "test") == 0) {
-                kprintf("Iniciando bateria de tests..\n");
+            else if (k_strcmp(cmd, "test") == 0) {
+                /* Si no hay argumento o es "all", ejecutamos la batería completa original */
+                if (arg[0] == '\0' || k_strcmp(arg, "all") == 0) {
+                    kprintf("Iniciando bateria de tests general...\n");
+                    test_memory();
 
-                test_memory();      /* Test simple sincrono */
+                    // test_processes();
 
-                //test_processes();   /* Lanza procesos mortales */
-
-                test_scheduler();   /* Comprueba el scheduler */
-            }
-            else if (k_strcmp(command_buf, "test_user_mode") == 0) {
-                create_process((void(*)(void*)) user_task, nullptr, 0, "test_user_mode");
-            }
-            else if (k_strcmp(command_buf, "test_crash") == 0) {
-                create_process((void(*)(void*)) kamikaze_test, nullptr, 0, "test_user_mode");
-            }
-            else if (k_strcmp(command_buf, "test_rr") == 0) {
-                test_quantum();
-            }
-            else if (k_strcmp(command_buf, "test_sem") == 0) {
-                test_semaphores_efficiency();
-            }
-            else if (k_strcmp(command_buf, "test_page_fault") == 0) {
-                create_process((void(*)(void*)) test_demand, nullptr, 0, "test_page_fault");
+                    test_scheduler();
+                }
+                /* Test del Tema 2: Round-Robin y Quantum */
+                else if (k_strcmp(arg, "rr") == 0) {
+                    test_quantum();
+                }
+                /* Test del Tema 3: Semáforos y Wait Queues */
+                else if (k_strcmp(arg, "sem") == 0) {
+                    test_semaphores_efficiency();
+                }
+                /* Test del Tema 4: Memoria Virtual y Page Faults */
+                else if (k_strcmp(arg, "pf") == 0) {
+                    create_process((void(*)(void*)) test_demand, nullptr, 0, "test_page_fault");
+                }
+                /* Argumento no reconocido */
+                else {
+                    kprintf("Error: Modulo de test '%s' no existe.\n", arg);
+                    kprintf("Opciones validas: all, rr, sem, pf\n");
+                }
             }
             else if (k_strcmp(command_buf, "clear") == 0) {
                 /* Código ANSI para limpiar terminal */

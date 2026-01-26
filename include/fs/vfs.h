@@ -50,9 +50,8 @@ int vfs_open(const char *name);
 int vfs_read(int fd, char *buf, int count);
 int vfs_write(int fd, const char *buf, int count);
 void vfs_ls(void); /* Para listar el contenido en la Shell */
-int vfs_open(const char *name);
-int vfs_write(int fd, const char *buf, int count);
-int vfs_read(int fd, char *buf, int count);
+int vfs_close(int fd);
+int vfs_remove(const char *name);
 
 
 #endif // VFS_H
