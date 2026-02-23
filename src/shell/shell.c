@@ -16,7 +16,9 @@
  */
 
 #include "../../include/sched.h"
+#include "../../include/types.h"
 #include "../../include/drivers/io.h"
+#include "../../include/drivers/timer.h"
 #include "../../include/kernel/process.h"
 #include "../../include/kernel/scheduler.h"
 #include "../../include/utils/kutils.h"
@@ -25,13 +27,10 @@
 #include "../../include/fs/vfs.h"
 
 /* ========================================================================== */
-/* FUNCIONES EXTERNAS                                                        */
+/* FUNCIONES EXTERNAS (Ensamblador)                                          */
 /* ========================================================================== */
 
-/* Habilita las interrupciones IRQ en el procesador */
-extern void enable_interrupts(void);
-
-/* Apaga el sistema */
+/* Apaga el sistema (src/utils.S) */
 extern void system_off(void);
 
 /* ========================================================================== */
@@ -210,7 +209,7 @@ void shell_task(void) {
                 }
                 /* Test del Tema 4: Memoria Virtual y Page Faults */
                 else if (k_strcmp(arg, "pf") == 0) {
-                    create_process((void(*)(void*)) test_demand, nullptr, 0, "test_page_fault");
+                    create_process((void(*)(void*)) test_demand, NULL, 0, "test_page_fault");
                 }
                 else if (k_strcmp(arg, "demo") == 0) {
                     ejecutar_gran_demo();

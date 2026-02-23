@@ -56,7 +56,7 @@ void kheap_init(unsigned long start_addr, unsigned long end_addr) {
 /**
  * @brief Reserva memoria del heap (first-fit)
  * @param size Tamaño solicitado en bytes
- * @return Puntero a la región asignada o nullptr si no hay espacio
+ * @return Puntero a la región asignada o NULL si no hay espacio
  */
 void *kmalloc(uint32_t size) {
     struct block_header *curr = head;

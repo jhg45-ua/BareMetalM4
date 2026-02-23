@@ -65,9 +65,6 @@ extern void disable_interrupts(void);
 /* Tabla de vectores de excepciones (src/vectors.S) */
 extern void vectors(void);
 
-/* Planificador de procesos (src/kernel.c) */
-extern void schedule(void);
-
 /* ========================================================================== */
 /* CONSTANTES DE TIMING                                                      */
 /* ========================================================================== */

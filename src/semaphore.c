@@ -53,17 +53,15 @@
  */
 
 #include "../include/semaphore.h"
+#include "../include/types.h"
 
 #include "../include/drivers/timer.h"
 #include "../include/kernel/process.h"
+#include "../include/kernel/scheduler.h"
 
 /* ========================================================================== */
-/* FUNCIONES EXTERNAS (Ensamblador)                                         */
+/* VARIABLES LOCALES                                                        */
 /* ========================================================================== */
-
-/* Spinlocks atómicos implementados en ARM64 assembly (locks.S) */
-extern void spin_lock(volatile int *lock);
-extern void spin_unlock(volatile int *lock);
 
 /* Spinlock global para proteger operaciones de semáforo */
 volatile int sem_lock = 0;
@@ -79,8 +77,8 @@ volatile int sem_lock = 0;
  */
 void sem_init(struct semaphore *s, int value) {
     s->count = value;
-    s->head = nullptr;
-    s->tail = nullptr;
+    s->head = NULL;
+    s->tail = NULL;
 }
 
 /**
@@ -123,7 +121,7 @@ void sem_wait(struct semaphore *s) {
         /* CASO B: Semáforo ocupado - Bloquearse en wait queue */
         
         /* Añadir proceso actual a la cola de espera */
-        if (s->tail == nullptr) {
+        if (s->tail == NULL) {
             /* Cola vacía: Somos el primero */
             s->head = current_process;
             s->tail = current_process;
@@ -132,7 +130,7 @@ void sem_wait(struct semaphore *s) {
             s->tail->next = current_process;
             s->tail = current_process;
         }
-        current_process->next = nullptr;
+        current_process->next = NULL;
 
         /* Cambiar estado a BLOQUEADO */
         current_process->state = PROCESS_BLOCKED;
@@ -178,7 +176,7 @@ void sem_signal(struct semaphore *s) {
     disable_interrupts();
     spin_lock(&sem_lock);
 
-    if (s->head != nullptr) {
+    if (s->head != NULL) {
         /* CASO A: Hay procesos esperando - Despertar el primero */
         
         /* Extraer el primer proceso de la cola */
@@ -186,15 +184,15 @@ void sem_signal(struct semaphore *s) {
 
         /* Avanzar la cola (FIFO: Sacamos el primero) */
         s->head = proceso_dormido->next;
-        if (s->head == nullptr) {
+        if (s->head == NULL) {
             /* Era el último, la cola queda vacía */
-            s->tail = nullptr;
+            s->tail = NULL;
         }
 
         /* Despertar el proceso: Cambiar a READY */
         proceso_dormido->state = PROCESS_READY;
         proceso_dormido->block_reason = BLOCK_REASON_NONE;
-        proceso_dormido->next = nullptr;
+        proceso_dormido->next = NULL;
 
         /* NOTA IMPORTANTE: NO incrementamos s->count
            Le pasamos el "turno" directamente al proceso despertado

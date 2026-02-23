@@ -145,7 +145,7 @@ struct pcb {
     long state;                  /* Estado del proceso */
     long pid;                    /* Process ID */
     int priority;                /* Prioridad (menor = más urgente) */
-    long prempt_count;           /* Contador de preempciones */
+    long preempt_count;           /* Contador de preempciones */
     unsigned long wake_up_time;  /* Tick para despertar (si BLOCKED) */
     char name[16];               /* Nombre del proceso (debug) */
     unsigned long stack_addr;    /* Dirección base de la pila */

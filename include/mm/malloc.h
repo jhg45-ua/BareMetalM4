@@ -27,7 +27,7 @@ void kheap_init(unsigned long start_addr, unsigned long end_addr);
 /**
  * @brief Reserva memoria (first-fit)
  * @param size Tamaño en bytes
- * @return Puntero asignado o nullptr si falla
+ * @return Puntero asignado o NULL si falla
  */
 void *kmalloc(uint32_t size);
 

@@ -28,4 +28,9 @@ typedef unsigned int       uint32_t;
 /* Entero sin signo de 64 bits (0 a 18,446,744,073,709,551,615) */
 typedef unsigned long      uint64_t;
 
+/* Puntero nulo estándar para C */
+#ifndef NULL
+#define NULL ((void*)0)
+#endif
+
 #endif // TYPES_H

@@ -27,7 +27,7 @@
 #ifndef VMM_H
 #define VMM_H
 
-#define PAGE_SIZE 4096
+#include "pmm.h"  /* PAGE_SIZE definido aquí */
 
 /* ========================================================================== */
 /* DESCRIPTORES DE TABLAS ARM64                                              */

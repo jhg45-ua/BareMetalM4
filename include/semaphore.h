@@ -33,6 +33,14 @@
 #include "sched.h"
 
 /* ========================================================================== */
+/* FUNCIONES EXTERNAS (Ensamblador - locks.S)                               */
+/* ========================================================================== */
+
+/* Spinlocks atómicos implementados en ARM64 assembly (LDXR/STXR) */
+extern void spin_lock(volatile int *lock);
+extern void spin_unlock(volatile int *lock);
+
+/* ========================================================================== */
 /* ESTRUCTURAS                                                               */
 /* ========================================================================== */
 

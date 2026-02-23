@@ -17,6 +17,7 @@
 
 #include "../../include/sched.h"
 #include "../../include/drivers/io.h"
+#include "../../include/drivers/timer.h"
 #include "../../include/kernel/process.h"
 #include "../../include/kernel/scheduler.h"
 #include "../../include/utils/kutils.h"
@@ -41,9 +42,6 @@ int num_process = 0;
 /* FUNCIONES EXTERNAS (Ensamblador)                                           */
 /* ========================================================================== */
 
-/* Habilita las interrupciones IRQ en el procesador */
-extern void enable_interrupts(void);
-
 /* Punto de entrada para nuevos procesos (src/entry.S) */
 extern void ret_from_fork(void);
 
@@ -66,7 +64,7 @@ extern void ret_from_fork(void);
  *   3. Configurar PCB:
  *      - quantum: Se inicializará en schedule() al ser elegido
  *      - state: PROCESS_READY
- *      - next: nullptr (para wait queues de semáforos)
+ *      - next: NULL (para wait queues de semáforos)
  *      - block_reason: BLOCK_REASON_NONE
  *   4. Configurar contexto de ejecución (ret_from_fork)
  *   
@@ -107,7 +105,7 @@ long create_process(void (*fn)(void*), void *arg, int priority, const char *name
     p->pid = pid;
     p->state = PROCESS_READY;
     p->priority = priority;
-    p->prempt_count = 0;
+    p->preempt_count = 0;
     p->wake_up_time = 0;
 
     p->cpu_time = 0;
@@ -152,7 +150,7 @@ void init_process_system() {
     kproc->state = PROCESS_RUNNING;
     kproc->priority = 0;
     kproc->stack_addr = 0;
-    kproc->prempt_count = 0;
+    kproc->preempt_count = 0;
 
     k_strncpy(kproc->name, "Kernel", 16);
 
