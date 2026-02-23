@@ -6,7 +6,7 @@
  *   Interfaz del scheduler híbrido del sistema operativo:
  *   
  *   CARACTERÍSTICAS IMPLEMENTADAS:
- *   - Round-Robin con Quantum (preemptive multitasking)
+ *   - Round-Robin con Quantum (multitarea expropiativa)
  *   - Prioridades con aging (fairness)
  *   - Sleep eficiente sin busy-wait (wait queues)
  *   
@@ -52,10 +52,10 @@ void schedule(void);
  *   FUNCIONES:
  *   1. Incrementa sys_timer_count (reloj global)
  *   2. Decrementa quantum del proceso actual
- *   3. Marca need_reschedule cuando quantum=0 (expropriación)
+ *   3. Marca need_reschedule cuando quantum=0 (expropiacion)
  *   4. Despierta procesos con wake_up_time <= sys_timer_count
  *   
- *   Implementa Round-Robin con Quantum (preemptive multitasking).
+ *   Implementa Round-Robin con Quantum (multitarea expropiativa).
  */
 void timer_tick(void);
 

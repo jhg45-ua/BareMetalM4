@@ -7,7 +7,7 @@
  *   Este archivo coordina la inicialización de todos los subsistemas:
  *   - Sistema de memoria (MMU + PMM + VMM para Demand Paging)
  *   - Sistema de procesos (con quantum para Round-Robin)
- *   - Interrupciones de timer (para preemption)
+ *   - Interrupciones de timer (para preempcion)
  *   - Shell del sistema
  * 
  * @author Sistema Operativo Educativo BareMetalM4

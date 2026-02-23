@@ -159,7 +159,7 @@ volatile unsigned long sys_timer_count = 0;
  *      - Decrementa el quantum del proceso actual
  *      - Si quantum llega a 0, marca need_reschedule
  *      - El kernel_exit llamará a schedule() si need_reschedule=1
- *      - Implementa preemptive multitasking (expropriación)
+ *      - Implementa multitarea expropiativa
  *   
  *   2. CONTABILIDAD DE CPU:
  *      - Incrementa cpu_time del proceso actual

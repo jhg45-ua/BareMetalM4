@@ -6,7 +6,7 @@
  *   Suite de pruebas para validar las funcionalidades implementadas:
  *   
  *   SCHEDULER:
- *   - Round-Robin con Quantum (expropriación por tiempo)
+ *   - Round-Robin con Quantum (expropiacion por tiempo)
  *   - Prioridades con aging (evita starvation)
  *   - Sleep y wake-up eficientes
  *   
@@ -259,7 +259,7 @@ void kamikaze_test() {
  *   - Cada proceso recibe un quantum (ej. 10 ticks)
  *   - En cada timer_tick(), el quantum se decrementa
  *   - Cuando quantum llega a 0, se marca need_reschedule
- *   - El scheduler expropria el proceso y asigna la CPU a otro
+ *   - El scheduler expropia el proceso y asigna la CPU a otro
  *   
  *   Sin quantum, este proceso monopolizaría el sistema y mataría el SO.
  *   Con quantum, el shell y otros procesos siguen funcionando.
@@ -284,7 +284,7 @@ void tarea_egoista(void) {
  *   
  *   RESULTADO ESPERADO:
  *   - El proceso egoísta corre durante su quantum
- *   - Tras agotar su quantum, el scheduler lo expropria
+ *   - Tras agotar su quantum, el scheduler lo expropia
  *   - El shell y otros procesos pueden ejecutarse normalmente
  *   - Demuestra que el Round-Robin con Quantum funciona correctamente
  *   
@@ -411,4 +411,3 @@ void test_demand(void) {
     *peligro = 42; /* ¡BUM! Esto lanzará un Page Fault */
     kprintf("Exito! El valor guardado es: %d\n", *peligro);
 }
-

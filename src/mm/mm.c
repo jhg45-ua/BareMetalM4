@@ -4,15 +4,15 @@
  * 
  * @details
  *   Configura la MMU de ARM64 con:
- *   - Tablas de páginas L1 (bloques de 1 GB)
- *   - Identity mapping para periféricos y RAM
- *   - Activación de MMU y caches
+ *   - Tablas de paginas multinivel (L1/L2/L3) con paginas de 4KB
+ *   - Identity mapping para perifericos y RAM
+ *   - Activacion de MMU y caches
  *   - Fundamento para Demand Paging: La MMU gestiona Page Faults
  *     que son capturados por handle_fault() en sys.c
  * 
  *   MAPA DE MEMORIA (QEMU virt):
- *   - 0x00000000 - 0x3FFFFFFF: Periféricos (Device memory)
- *   - 0x40000000 - 0x7FFFFFFF: RAM del kernel (Normal memory)
+ *   - 0x00000000 - 0x3FFFFFFF: Perifericos (Device memory)
+ *   - 0x40000000 - 0x47FFFFFF: RAM del kernel (128MB, Normal memory)
  * 
  * @author Sistema Operativo Educativo BareMetalM4
  * @version 0.6

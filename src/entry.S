@@ -11,7 +11,7 @@
  *
  *   Guarda y restaura contexto completo, incluyendo registros
  *   callee-saved y estado de excepción (ELR, SPSR) para permitir
- *   preemptive multitasking.
+ *   multitarea expropiativa.
  *
  * @author Sistema Operativo Educativo BareMetalM4
  * @version 0.4

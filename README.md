@@ -6,7 +6,7 @@
 
 - **Arquitectura:** ARM64 (ARMv8-A) Cortex-A72
 - **Plataforma:** QEMU `virt` machine
-- **Multitarea Expropiatoria:** Planificador Round-Robin con Quantum + Prioridades + Aging (hasta 64 procesos)
+- **Multitarea Expropiativa:** Planificador Round-Robin con Quantum + Prioridades + Aging (hasta 64 procesos)
 - **Gestión de Memoria Avanzada:** 
   - MMU con memoria virtual multinivel (L1/L2/L3)
   - **Demand Paging** (asignación bajo demanda mediante Page Faults)
@@ -19,7 +19,7 @@
   - Spinlocks (LDXR/STXR) con operaciones atómicas
   - **Semáforos con Wait Queues** (sin busy-wait)
 - **Interrupciones:** GIC v2 + Timer de sistema con cambio de contexto automático
-- **Shell Interactivo:** 16 comandos con parser de argumentos
+- **Shell Interactivo:** 11 comandos con parser de argumentos
 - **Sistema de Tests Modular:** Validación de Round-Robin, Semáforos y Demand Paging
 - **Syscalls:** Interfaz para modo usuario (SYS_WRITE, SYS_EXIT, stubs SYS_OPEN/READ)
 - **Sin dependencias:** Sin librerías estándar (`-ffreestanding -nostdlib`)
@@ -46,7 +46,7 @@ src/
 ├── fs/             # Sistema de archivos (v0.6)
 │   └── ramfs.c     # RamFS: VFS, iNodos, File Descriptors
 ├── shell/          # Interfaz de usuario
-│   └── shell.c     # Shell + 16 comandos + parser
+│   └── shell.c     # Shell + 11 comandos + parser
 ├── utils/          # Utilidades
 │   ├── kutils.c    # panic, delay, strings (k_strlen)
 │   └── tests.c     # Tests modulares (RR, Sem, PF)
@@ -97,7 +97,7 @@ Una vez ejecutado, el sistema arranca un shell interactivo con los siguientes co
 - `ps` - Lista procesos (PID, prioridad, estado, tiempo de CPU, nombre)
 - `clear` - Limpia la pantalla (códigos ANSI)
 - `panic` - Provoca un kernel panic (demo)
-- `poweroff` - Apaga el sistema (PSCI)
+- `poweroff` - Apaga el sistema (semihosting)
 
 ### Sistema de Archivos (v0.6)
 - `touch [archivo]` - Crea un archivo vacío en el RamFS
@@ -137,7 +137,7 @@ Para información detallada sobre la arquitectura, consulta:
 
 ### Mejoras del Shell
 - ✅ **Parser de argumentos** completo
-- ✅ **16 comandos totales** (11 nuevos desde v0.5)
+- ✅ **11 comandos totales** (6 nuevos desde v0.5)
 - ✅ **Tests modulares**: `test [all|rr|sem|pf]`
 
 ### Preparación para Modo Usuario

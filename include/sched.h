@@ -127,7 +127,7 @@ struct cpu_context {
  *   
  *   SCHEDULING:
  *   - priority: Valor de prioridad (menor valor = mayor prioridad)
- *   - quantum: Ticks restantes antes de expropriación (Round-Robin)
+ *   - quantum: Ticks restantes antes de expropiacion (Round-Robin)
  *   - wake_up_time: Tick en el que despertar si block_reason=SLEEP
  *   
  *   BLOQUEO Y SINCRONIZACIÓN:

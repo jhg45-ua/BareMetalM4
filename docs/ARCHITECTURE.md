@@ -19,7 +19,7 @@
 
 **BareMetalM4** es un kernel operativo educativo para **ARM64** (AArch64) que demuestra conceptos fundamentales y avanzados de sistemas operativos:
 
-- ✅ **Multitarea cooperativa y expropiatoria**
+- ✅ **Multitarea cooperativa y expropiativa**
 - ✅ **Planificador Round-Robin con Quantum** (v0.6) - Preemption basada en tiempo
 - ✅ **Planificación con prioridades y envejecimiento (aging)**
 - ✅ **Manejo de interrupciones y excepciones**
@@ -58,8 +58,6 @@ BareMetalM4/
 │   ├── sched.h                 # Definiciones de PCB y estados de proceso
 │   ├── semaphore.h             # Primitivas de sincronización con Wait Queues (v0.6)
 │   ├── types.h                 # Tipos básicos del sistema (uint64_t, etc.)
-│   ├── tests.h                 # Interfaz de funciones de prueba
-│   │
 │   ├── drivers/                # Headers de controladores hardware
 │   │   ├── io.h                #   Interfaz UART y kprintf
 │   │   └── timer.h             #   Configuración GIC y timer del sistema
@@ -161,7 +159,7 @@ BareMetalM4/
 | `mm.c`     | ~250   | Configuración MMU, tablas L1/L2/L3, TLB invalidation             |
 | `pmm.c`    | ~180   | Physical Memory Manager: bitmap, get_free_page() (v0.6)          |
 | `vmm.c`    | ~200   | Virtual Memory Manager: map_page(), demand paging support (v0.6) |
-| `malloc.c` | ~250   | kmalloc/kfree, heap dinámico, lista enlazada, coalescing         |
+| `malloc.c` | ~250   | kmalloc/kfree, heap dinámico, lista enlazada, coalescing parcial |
 
 #### File System (.c)
 | Archivo    | Líneas | Descripción                                                      |
@@ -171,7 +169,7 @@ BareMetalM4/
 #### User Interface & Tests (.c)
 | Archivo       | Líneas | Descripción                                                          |
 |---------------|--------|----------------------------------------------------------------------|
-| `shell.c`     | ~320   | Shell con parser de argumentos y 16 comandos (v0.6: +touch/rm/ls/cat/write) |
+| `shell.c`     | ~320   | Shell con parser de argumentos y 11 comandos (v0.6: +touch/rm/ls/cat/write) |
 | `tests.c`     | ~250   | user_task (EL0), kamikaze_test, demand_test, semaphore tests        |
 | `kutils.c`    | ~110   | panic, delay, strcmp, strncpy, memset, memcpy, k_strlen (v0.6)      |
 | `semaphore.c` | ~150   | sem_init, sem_wait, sem_signal con Wait Queues (v0.6)               |
@@ -183,7 +181,7 @@ BareMetalM4/
 ### Módulos del Kernel
 
 #### 1. **kutils** (Utilidades del Kernel)
-**Archivos**: `src/utils/kutils.c`, `include/kernel/kutils.h`
+**Archivos**: `src/utils/kutils.c`, `include/utils/kutils.h`
 
 **Responsabilidad**: Funciones de utilidad general del kernel
 
@@ -308,7 +306,7 @@ void free_zombie() {
 | `test [módulo]`    | Tests modulares      | **(v0.6)** Acepta argumentos: `all` (completo), `rr` (quantum), `sem` (semáforos), `pf` (paging)   |
 | `clear`            | Limpiar pantalla     | Limpia terminal usando códigos ANSI (ESC[2J ESC[H)                                                  |
 | `panic`            | Kernel Panic         | Provoca un kernel panic intencionalmente (demo)                                                     |
-| `poweroff`         | Apagar sistema       | Apaga QEMU usando system_off() (PSCI)                                                               |
+| `poweroff`         | Apagar sistema       | Apaga QEMU usando system_off() (semihosting)                                                       |
 
 **Características del Shell**:
 - ✅ Entrada interactiva con eco local
@@ -412,13 +410,13 @@ PID | Prio | State | Time | Name
 | Función      | Descripción                                        |
 |--------------|----------------------------------------------------|
 | `mem_init()` | Inicializa MMU, tablas de páginas, y activa caches |
-| `map_page()` | Mapea una página virtual a física (L1)             |
+| `map_page()` | Mapea una página virtual a física (L1/L2/L3)       |
 
-**Características**:
-- Tablas de páginas L1 con bloques de 1 GB
-- Identity mapping (virtual = física)
-- Tipos de memoria: Device (periféricos) y Normal (RAM)
-- Activación de I-Cache y D-Cache
+**Caracteristicas**:
+- Tablas de paginas multinivel (L1/L2/L3) con paginas de 4KB
+- Identity mapping (virtual = fisica)
+- Tipos de memoria: Device (perifericos) y Normal (RAM)
+- Activacion de I-Cache y D-Cache
 
 ##### 6.2 Asignador Dinámico (malloc)
 **Archivos**: `src/mm/malloc.c`, `include/mm/malloc.h`
@@ -434,9 +432,9 @@ PID | Prio | State | Time | Name
 
 **Características**:
 - Header de bloque con tamaño y estado (libre/ocupado)
-- Coalescing de bloques adyacentes libres
+- Coalescing parcial de bloques adyacentes (hacia adelante)
 - Gestión de heap desde dirección base configurable
-- Sin fragmentación externa gracias a coalescing
+- Reduce fragmentación externa, pero no elimina toda
 
 **Uso**:
 ```c
@@ -453,7 +451,7 @@ kfree(buffer);
 ---
 
 #### 7. **tests** (Sistema de Pruebas)
-**Archivos**: `src/utils/tests.c`, `include/tests.h`
+**Archivos**: `src/utils/tests.c`, `include/utils/tests.h`
 
 **Responsabilidad**: Validación, diagnóstico y procesos de prueba del sistema
 
@@ -625,15 +623,10 @@ void kernel() {
     // 4. Inicializar timer (GIC + interrupciones)
     timer_init();
     
-    // 5. Ejecutar tests del sistema (opcional)
-    test_memory();
-    //    - Valida kmalloc/kfree
-    //    - Verifica estado de MMU
-    
-    // 6. Crear shell y procesos del sistema
+    // 5. Crear shell y procesos del sistema
     create_process(shell_task, 1, "Shell");
     
-    // 7. Loop principal (IDLE)
+    // 6. Loop principal (IDLE)
     while(1) {
         asm volatile("wfi");  // Wait For Interrupt
     }
@@ -697,10 +690,9 @@ void kernel() {
 ┌─────────────────────────────┐
 │  kernel() [kernel.c]        │
 │  - Inicializa MMU           │
-│  - Prueba kmalloc/kfree     │
-│  - Inicializa scheduler     │
-│  - Crea procesos            │
+│  - Inicializa procesos      │
 │  - timer_init()             │
+│  - Crea procesos            │
 │  - WFI loop                 │
 └─────────────────────────────┘
 ```
@@ -957,10 +949,8 @@ Cuando ocurre una **excepción**, la CPU:
 │ handle_timer_irq() [timer.c]:        │
 │ 1. Leer GICC_IAR (interrupt ACK)     │
 │ 2. Recargar timer (CNTP_TVAL_EL0)    │
-│ 3. Llamar schedule() para cambiar P  │
-│ 4. ¡¡CRITICAL: Escribir GICC_EOIR!!  │
-│    (End of Interrupt) - sin esto     │
-│    el timer se congela               │
+│ 3. Escribir GICC_EOIR (End IRQ)      │
+│ 4. Llamar schedule() para cambiar P  │
 └────────────┬─────────────────────────┘
              │
              ▼
@@ -1302,7 +1292,8 @@ el kernel por ahora. Preparadas para extensión futura a procesos de usuario con
 
 **Convención de Llamada**:
 - `x8`: Número de syscall
-- `x19`: Primer argumento
+- `x19`: Primer argumento para SYS_WRITE y SYS_EXIT (implementadas)
+- `x0`, `x1`, `x2`: Argumentos para SYS_OPEN y SYS_READ (stubs actuales)
 - Instrucción: `svc #0`
 
 #### Flujo de Syscall Completo
@@ -1406,11 +1397,39 @@ Almacena el estado del proceso cuando ocurre una excepción:
 
 ```c
 struct pt_regs {
-    unsigned long x19-x28;  // Registros callee-saved
-    unsigned long fp;       // Frame pointer (x29)
-    unsigned long sp;       // Stack pointer
-    unsigned long pc;       // Program counter
-    unsigned long pstate;   // Processor state
+    unsigned long x0;
+    unsigned long x1;
+    unsigned long x2;
+    unsigned long x3;
+    unsigned long x4;
+    unsigned long x5;
+    unsigned long x6;
+    unsigned long x7;
+    unsigned long x8;
+    unsigned long x9;
+    unsigned long x10;
+    unsigned long x11;
+    unsigned long x12;
+    unsigned long x13;
+    unsigned long x14;
+    unsigned long x15;
+    unsigned long x16;
+    unsigned long x17;
+    unsigned long x18;
+    unsigned long x19;
+    unsigned long x20;
+    unsigned long x21;
+    unsigned long x22;
+    unsigned long x23;
+    unsigned long x24;
+    unsigned long x25;
+    unsigned long x26;
+    unsigned long x27;
+    unsigned long x28;
+    unsigned long x29;      // Frame Pointer (FP)
+    unsigned long x30;      // Link Register (LR)
+    unsigned long pstate;   // SPSR_EL1 (Estado del procesador)
+    unsigned long pc;       // ELR_EL1 (Program Counter)
 };
 ```
 
@@ -1876,28 +1895,29 @@ El demand paging conecta tres componentes clave:
 BareMetalM4 v0.6 implementa un esquema completo de paginación de 3 niveles:
 
 ```
-DIRECCION VIRTUAL (48 bits) - Configuración con 4KB pages
+DIRECCION VIRTUAL (39 bits) - Configuracion con 4KB pages
 │
-├─ Bits [47:39] (9 bits) → Índice L1 (512 entradas) - Table Descriptor
+├─ Bits [38:30] (9 bits) → Indice L1 (512 entradas) - Table Descriptor
 │   └─ Cada entrada apunta a tabla L2
 │
-├─ Bits [38:30] (9 bits) → Índice L2 (512 entradas) - Table Descriptor
+├─ Bits [29:21] (9 bits) → Indice L2 (512 entradas) - Table Descriptor
 │   └─ Cada entrada apunta a tabla L3
 │
-├─ Bits [29:21] (9 bits) → Índice L3 (512 entradas) - Page Descriptor
+├─ Bits [20:12] (9 bits) → Indice L3 (512 entradas) - Page Descriptor
 │   └─ Cada entrada = página física de 4KB
 │
-└─ Bits [20:0] (12 bits) → Offset dentro de la página (4KB)
+└─ Bits [11:0] (12 bits) → Offset dentro de la pagina (4KB)
 
 TAMAÑOS:
 - Página L3: 4 KB (2^12)
-- Bloque L2: 2 MB (512 páginas × 4KB)
-- Bloque L1: 1 GB (512 bloques L2 × 2MB)
+- Entrada L3: 4 KB (pagina)
+- Entrada L2: 2 MB (si fuera bloque, no se usa en el mapeo actual)
+- Entrada L1: 1 GB (si fuera bloque, no se usa en el mapeo actual)
 - Total espacio: 512 GB (512 entradas L1 × 1GB)
 
-CONFIGURACIÓN:
-├─ T0SZ=16: 48 bits de espacio virtual (256 TB)
-├─ TG0=4KB: Granularidad de página = 4096 bytes
+CONFIGURACION:
+├─ T0SZ=25: 39 bits de espacio virtual (512 GB)
+├─ TG0=4KB: Granularidad de pagina = 4096 bytes
 └─ 3 niveles activos: L1 → L2 → L3
 ```
 
@@ -1905,18 +1925,18 @@ CONFIGURACIÓN:
 
 ```c
 /* Descriptor de Tabla (L1 y L2) */
-uint64_t table_descriptor = 
-    (dirección_física_siguiente_tabla) | 
-    0x3;  // Bits[1:0] = 0b11 (válido + tipo tabla)
+uint64_t table_descriptor =
+    (direccion_fisica_siguiente_tabla) |
+    0x3;  // Bits[1:0] = 0b11 (valido + tipo tabla)
 
-/* Descriptor de Página (L3) */
-uint64_t page_descriptor = 
-    (dirección_física_página) |
+/* Descriptor de Pagina (L3) */
+uint64_t page_descriptor =
+    (direccion_fisica_pagina) |
     (atributos << 2) |  // MAIR index
     (AP << 6) |         // Access Permissions
     (SH << 8) |         // Shareability
     (AF << 10) |        // Access Flag
-    0x3;                // Bits[1:0] = 0b11 (válido + tipo página)
+    0x3;                // Bits[1:0] = 0b11 (valido + tipo pagina)
 ```
 
 #### Registros Clave del Sistema
@@ -1927,15 +1947,15 @@ REGISTROS CLAVE:
 │   └─ Define tipos de memoria (Device, Normal con/sin cache)
 │
 ├─ TCR_EL1: Translation Control Register
-│   ├─ T0SZ=16: 48 bits de dirección virtual
-│   ├─ TG0=4KB: Granularidad de página
+│   ├─ T0SZ=25: 39 bits de direccion virtual
+│   ├─ TG0=4KB: Granularidad de pagina
 │   └─ Configura comportamiento de traducción
 │
 ├─ TTBR0_EL1: Translation Table Base Register 0
-│   └─ Apunta a tabla L1 (direcciones bajas 0x0000...)
+│   └─ Apunta a tabla raiz (kernel_pgd)
 │
 ├─ TTBR1_EL1: Translation Table Base Register 1
-│   └─ Apunta a tabla L1 (direcciones altas 0xFFFF...)
+│   └─ Apunta a tabla raiz (kernel_pgd)
 │
 └─ SCTLR_EL1: System Control Register
     ├─ M bit: MMU Enable/Disable
@@ -1948,28 +1968,26 @@ REGISTROS CLAVE:
 | Rango Físico              | Tamaño | Tipo   | Contenido                           |
 |---------------------------|--------|--------|-------------------------------------|
 | `0x00000000 - 0x3FFFFFFF` | 1 GB   | Device | UART (0x09000000), GIC (0x08000000) |
-| `0x40000000 - 0x7FFFFFFF` | 1 GB   | Normal | Código kernel, stack, datos         |
+| `0x40000000 - 0x47FFFFFF` | 128 MB | Normal | Código kernel, stack, datos         |
 
-**Identity Mapping**: Dirección virtual = Dirección física (simplifica acceso inicial)
+**Identity Mapping**: Direccion virtual = Direccion fisica (simplifica acceso inicial)
 
-### Tabla de Páginas L1
+### Tabla de Páginas (L1/L2/L3) y Mapeo Inicial
 
 ```c
-uint64_t page_table_l1[512] __attribute__((aligned(4096)));
-
-// Entrada 0: Periféricos (Device memory)
-page_table_l1[0] = 0x00000000 | MM_DEVICE;
-
-// Entrada 1: RAM del kernel (Normal memory)
-page_table_l1[1] = 0x40000000 | MM_NORMAL;
+    // Mapeo inicial por páginas de 4KB (identity mapping)
+    // RAM QEMU virt: 128MB desde 0x40000000 hasta 0x47FFFFFF
+    for (addr = 0x40000000; addr < 0x48000000; addr += 0x1000) {
+        map_page(kernel_pgd, addr, addr, FLAGS_NORMAL);
+    }
 ```
 
-**Formato de descriptor de bloque**:
+**Formato de descriptor de página**:
 ```
-Bits [47:30] - Dirección física base (1 GB alineado)
+Bits [47:12] - Dirección física base (4 KB alineado)
 Bits [11:2]  - Atributos:
   ├─ Bit 0: Válido (1)
-  ├─ Bit 1: Tipo (1 = bloque)
+  ├─ Bit 1: Tipo (1 = pagina)
   ├─ Bits [3:2]: Índice MAIR (tipo de memoria)
   ├─ Bits [9:8]: Shareability (Inner Shareable)
   └─ Bit 10: Access Flag (debe ser 1)
@@ -1996,18 +2014,18 @@ Bits [11:2]  - Atributos:
 ### Proceso de Inicialización
 
 ```
-mem_init() - Secuencia de activación:
+mem_init() - Secuencia de activacion (modelo actual):
 │
-├─ 1. Limpiar tabla L1 (512 entradas a 0)
+├─ 1. Limpiar tabla raiz (kernel_pgd) y tablas auxiliares
 │
-├─ 2. Mapear memoria:
-│   ├─ Entrada 0: Periféricos (Device)
-│   └─ Entrada 1: RAM (Normal)
+├─ 2. Mapear memoria con paginas de 4KB:
+│   ├─ Perifericos (UART, GIC) como Device
+│   └─ RAM completa (0x40000000-0x48000000) como Normal
 │
 ├─ 3. Configurar registros:
 │   ├─ MAIR_EL1 ← Tipos de memoria
 │   ├─ TCR_EL1 ← T0SZ=25 (39 bits), TG0=4KB
-│   └─ TTBR0/1_EL1 ← &page_table_l1
+│   └─ TTBR0/1_EL1 ← kernel_pgd
 │
 ├─ 4. Activar MMU:
 │   ├─ SCTLR_EL1 |= (M | C | I)
@@ -2018,7 +2036,7 @@ mem_init() - Secuencia de activación:
 │   └─ tlb_invalidate_all()
 │       └─ Limpiar TLB (cache de traducciones)
 │
-└─ Sistema ahora ejecuta en memoria virtual
+└─ Sistema ahora ejecuta en memoria virtual (identity mapping)
 ```
 
 ### Translation Lookaside Buffer (TLB)
@@ -2110,13 +2128,13 @@ struct block_header {
    - Marca el bloque como ocupado
    - Si el bloque es mucho más grande, lo divide (split)
 3. Si no encuentra:
-   - Expande el heap creando un nuevo bloque
+   - Retorna NULL (no hay expansión dinámica del heap)
 4. Retorna puntero al área de datos (después del header)
 
 **kfree(ptr)**:
 1. Obtiene el header del bloque desde el puntero
 2. Marca el bloque como libre
-3. Intenta fusionar (coalesce) con bloques adyacentes libres
+3. Intenta fusionar (coalesce) con bloques adyacentes libres (hacia adelante)
 4. Reduce fragmentación externa
 
 **kheap_init(start, end)**:
@@ -2130,7 +2148,7 @@ struct block_header {
 | Característica      | Descripción                                          |
 |---------------------|------------------------------------------------------|
 | **Estrategia**      | First-fit (primer bloque libre que cabe)             |
-| **Coalescing**      | Fusión de bloques adyacentes libres                  |
+| **Coalescing**      | Parcial (solo hacia adelante)                        |
 | **Split**           | División de bloques grandes cuando es posible        |
 | **Lista enlazada**  | Gestión simple de bloques libres y ocupados          |
 | **Alineación**      | Bloques alineados a 16 bytes para ARM64              |
@@ -2637,7 +2655,7 @@ KERNEL_EXIT (al retornar de IRQ):
 
 **Ubicación**: `src/kernel/scheduler.c::timer_tick()`
 
-En cada tick del timer (~10ms):
+En cada tick del timer (~104ms):
 
 ```c
 void timer_tick(void) {
@@ -2677,7 +2695,7 @@ Mecanismo para que un proceso se bloquee **temporalmente** (a diferencia de sem�
 | **Tipo**           | Busy-wait                | Bloqueo con timer            |
 | **CPU**            | Consume (bucle infinito) | Libera (para otros procesos) |
 | **Otros procesos** | NO pueden ejecutar       | PUEDEN ejecutar              |
-| **Precisión**      | Exacta (ciclos de CPU)   | Aproximada (~10ms)           |
+| **Precisión**      | Exacta (ciclos de CPU)   | Aproximada (~104ms)          |
 | **Uso**            | Timing preciso           | Delays normales              |
 
 #### Flujo de Ejecución
@@ -2695,7 +2713,7 @@ Proceso 1 ejecuta: sleep(50)
     
     Proceso 2 ejecuta (elegido por schedule)
     
-    Timer interrupt cada ~10ms incrementa sys_timer_count
+    Timer interrupt cada ~104ms incrementa sys_timer_count
     
     Cuando sys_timer_count == wake_up_time:
     ├─ handle_timer_irq() revisa todos BLOCKED
@@ -2739,10 +2757,10 @@ for (int i = 0; i < num_process; i++) {
 
 #### Timing
 
-- **Cada timer interrupt**: ~10 ms
-- **sleep(100)**: ~1 segundo
-- **sleep(10)**: ~100 milisegundos
-- **Precisión**: ±10ms (depende de cuando se chequea)
+- **Cada timer interrupt**: ~104 ms
+- **sleep(10)**: ~1 segundo
+- **sleep(1)**: ~100 milisegundos
+- **Precisión**: ±104ms (depende de cuando se chequea)
 
 #### Ejemplo de Uso
 
@@ -2772,7 +2790,7 @@ void proceso_1() {
 
 #### Limitaciones
 
-- **No es exacto**: ±10ms de precisión
+- **No es exacto**: ±104ms de precisión
 - **Overhead**: Chequeo en cada interrupt (~50 ciclos)
 - **Proceso duerme más**: Espera a ser seleccionado nuevamente
 - **Requiere interrupts**: Sin enable_interrupts(), nunca despierta
@@ -2808,7 +2826,7 @@ void proceso_1() {
 | **Sin memoria virtual** | Omitir MMU                    | Paging + TLB            |
 | **Sin filesystem**      | Scope limitado                | VFS + inode cache       |
 | **Sin IPC avanzado**    | Educativo                     | Message queues, pipes   |
-| **UART polling**        | Implementación simple         | Interrupts + buffers    |
+| **UART polling**        | Implementación simple         | Interrupts + buffers (actual) |
 
 [↑ Volver a Tabla de Contenidos](#-tabla-de-contenidos)
 
@@ -2845,7 +2863,7 @@ void proceso_1() {
 
 | Rango                   | Propósito         |
 |-------------------------|-------------------|
-| 0x80000000 - 0x80FFFFFF | Kernel (8 MB)     |
+| 0x40000000 - 0x40FFFFFF | Kernel (16 MB)    |
 | 0x09000000              | UART0             |
 | 0x08000000              | GIC Distribuidor  |
 | 0x08010000              | GIC CPU Interface |
@@ -3043,8 +3061,8 @@ void proceso_1() {
 - **CNTP_CTL_EL0**: Timer Control Register (enable/disable)
 
 #### Registros de MMU
-- **TTBR0_EL1**: Translation Table Base Register 0 (tabla de páginas user)
-- **TTBR1_EL1**: Translation Table Base Register 1 (tabla de páginas kernel)
+- **TTBR0_EL1**: Translation Table Base Register 0 (tabla raiz, kernel_pgd)
+- **TTBR1_EL1**: Translation Table Base Register 1 (tabla raiz, kernel_pgd)
 - **TCR_EL1**: Translation Control Register (configuración de paginación)
 - **MAIR_EL1**: Memory Attribute Indirection Register (tipos de memoria)
 

@@ -6,7 +6,7 @@
  *   Implementa un asignador dinámico minimalista para el kernel:
  *   - Lista enlazada simple de bloques (first-fit)
  *   - Alineación a 16 bytes (ARM64)
- *   - Sin coalescencia (pendiente de mejora)
+ *   - Coalescing parcial hacia adelante
  *
  *   Diseñado para fines educativos: código claro y corto.
  */
@@ -26,7 +26,7 @@ struct block_header {
 };
 
 // Inicio de la lista
-static struct block_header *head = nullptr;
+static struct block_header *head = 0;
 
 /**
  * @brief Inicializa el heap del kernel
@@ -47,7 +47,7 @@ void kheap_init(unsigned long start_addr, unsigned long end_addr) {
     // El primer bloque ocupa TODA la RAM disponible
     // Tamaño total - Tamaño del header
     head->size = (end_addr - start_addr) - sizeof(struct block_header);
-    head->next = nullptr; // No hay siguiente
+    head->next = 0; // No hay siguiente
     head->is_free = 1; // Está libre
 
     kprintf("   [HEAD] Iniciando en 0x%x. Tamaño inicial: %d bytes\n", start_addr, head->size);
@@ -105,7 +105,7 @@ void *kmalloc(uint32_t size) {
         curr = curr->next;
     }
     kprintf("[HEAP] Error: Out of Memory!\n");
-    return nullptr; // NULL
+    return 0; // NULL
 }
 
 /**

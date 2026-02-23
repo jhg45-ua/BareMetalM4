@@ -680,7 +680,7 @@ vectors:
 
     /* GRUPO 3: Lower EL (AArch64) - USER MODE */
     VENTRY el0_sync
-    VENTRY el0_irq
+    VENTRY el0_sync
     VENTRY hang
     VENTRY hang
 

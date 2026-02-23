@@ -11,7 +11,7 @@
  *   - Asignación automática de tablas intermedias
  *   - Configuración de permisos (RW, User/Kernel, Exec/NoExec)
  *   
- *   TABLAS DE PÁGINAS ARM64 (4KB pages):
+ *   TABLAS DE PAGINAS ARM64 (4KB pages):
  *   - L1 (PGD): Page Global Directory (bits 38-30 de VA)
  *   - L2 (PMD): Page Middle Directory (bits 29-21 de VA)
  *   - L3 (PTE): Page Table Entry (bits 20-12 de VA)

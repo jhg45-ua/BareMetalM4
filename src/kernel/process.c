@@ -159,7 +159,7 @@ long create_thread(void (*fn)(void*), int priority, const char *name) {
  *   - Se ejecuta cuando no hay otros procesos READY
  *   - Tiene prioridad 0 (la más baja)
  *   - Ejecuta WFI (Wait For Interrupt) para ahorrar energía
- *   - No tiene quantum asignado (no necesita preemption)
+ *   - No tiene quantum asignado (no necesita preempción)
  */
 void init_process_system() {
     /* Limpiamos la tabla de procesos (opcional si está en .bss, pero seguro) */

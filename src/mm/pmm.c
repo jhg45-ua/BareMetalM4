@@ -1,6 +1,6 @@
 /**
  * @file pmm.c
- * @brief Gestor de memoria física (Physical Memory Manager)
+ * @brief Gestor de memoria fisica (Physical Memory Manager)
  * 
  * @details
  *   Implementa el gestor de memoria física del kernel:

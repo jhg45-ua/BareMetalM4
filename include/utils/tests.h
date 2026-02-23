@@ -6,7 +6,7 @@
  *   Define pruebas para verificar las funcionalidades implementadas:
  *   
  *   SCHEDULER:
- *   - Round-Robin con Quantum (expropriación por tiempo)
+ *   - Round-Robin con Quantum (expropiacion por tiempo)
  *   - Prioridades con aging (evita starvation)
  *   - Sleep y wake-up eficientes (wait queues)
  *   
@@ -120,7 +120,7 @@ void kamikaze_test(void);
  *   - Cada proceso recibe un quantum (ej. 10 ticks)
  *   - En cada timer_tick(), el quantum se decrementa
  *   - Cuando quantum llega a 0, se marca need_reschedule
- *   - El scheduler expropria el proceso y asigna la CPU a otro
+ *   - El scheduler expropia el proceso y asigna la CPU a otro
  *   
  *   RESULTADO ESPERADO:
  *   - El proceso egoísta NO monopoliza el sistema
