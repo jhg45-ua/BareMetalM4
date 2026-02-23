@@ -104,7 +104,7 @@ void shell_task(void) {
             arg[j] = '\0';
 
             /* --- EJECUCIÓN DE COMANDOS --- */
-            if (k_strcmp(command_buf, "help") == 0) {
+            if (k_strcmp(cmd, "help") == 0) {
                 kprintf("Comandos disponibles:\n");
                 kprintf("  help               - Muestra esta ayuda\n");
                 kprintf("  ps                 - Lista los procesos (simulado)\n");
@@ -118,7 +118,7 @@ void shell_task(void) {
                 kprintf("  panic              - Provoca un Kernel Panic\n");
                 kprintf("  poweroff           - Apaga el sistema\n");
             } 
-            else if (k_strcmp(command_buf, "ps") == 0) {
+            else if (k_strcmp(cmd, "ps") == 0) {
                 kprintf("\nPID   | Prio   |  State  |   Time   | Name\n");
                 kprintf("------|--------|---------|----------|------\n");
                 for(int i = 0; i < MAX_PROCESS; i++) {
@@ -215,21 +215,24 @@ void shell_task(void) {
                 else if (k_strcmp(arg, "pf") == 0) {
                     create_process((void(*)(void*)) test_demand, nullptr, 0, "test_page_fault");
                 }
+                else if (k_strcmp(arg, "demo") == 0) {
+                    ejecutar_gran_demo();
+                }
                 /* Argumento no reconocido */
                 else {
                     kprintf("Error: Modulo de test '%s' no existe.\n", arg);
                     kprintf("Opciones válidas: all, rr, sem, pf\n");
                 }
             }
-            else if (k_strcmp(command_buf, "clear") == 0) {
+            else if (k_strcmp(cmd, "clear") == 0) {
                 /* Código ANSI para limpiar terminal */
                 kprintf("\033[2J\033[H");
                 kprintf("BareMetalM4 Shell\n");
             }
-            else if (k_strcmp(command_buf, "panic") == 0) {
+            else if (k_strcmp(cmd, "panic") == 0) {
                 panic("Usuario solicitó pánico");
             }
-            else if(k_strcmp(command_buf, "poweroff") == 0) {
+            else if(k_strcmp(cmd, "poweroff") == 0) {
                 kprintf("Apagando el sistema... Hasta luego!\n");
                 system_off();
             }

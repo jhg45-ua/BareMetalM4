@@ -82,7 +82,7 @@ vectors:
 
     /* GRUPO 3: Lower EL (AArch64) - USER MODE 64-bit */
     VENTRY el0_sync /* +0x400: Synchronous */
-    VENTRY el0_sync /* +0x480: IRQ */
+    VENTRY el0_irq  /* +0x480: IRQ */
     VENTRY hang     /* +0x500: FIQ */
     VENTRY hang     /* +0x580: SError */
 
