@@ -107,10 +107,11 @@ Una vez ejecutado, el sistema arranca un shell interactivo con los siguientes co
 - `write [archivo]` - Escribe texto predefinido en un archivo
 
 ### Tests del Sistema (v0.6)
-- `test all` - Ejecuta todos los tests disponibles
+- `test all` - Bateria global de tests (memoria + scheduler)
 - `test rr` - Test de Round-Robin con Quantum
 - `test sem` - Test de Semáforos con Wait Queues
 - `test pf` - Test de Demand Paging (Page Faults)
+- `test demo` - Demo integrada (heap + RamFS en dos procesos)
 
 ## 📖 Documentación Completa
 

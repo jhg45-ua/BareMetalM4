@@ -179,4 +179,6 @@ void test_semaphores_efficiency(void);
  */
 void test_demand(void);
 
+void ejecutar_gran_demo();
+
 #endif /* TESTS_H */

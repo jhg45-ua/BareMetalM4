@@ -30,6 +30,7 @@
 #include "../../include/kernel/process.h"
 #include "../../include/mm/malloc.h"
 #include "../../include/semaphore.h"
+#include "../../include/fs/vfs.h"
 
 /* ========================================================================== */
 /* FUNCIONES EXTERNAS (Ensamblador)                                         */
@@ -381,7 +382,7 @@ void test_semaphores_efficiency(void) {
 }
 
 /* ========================================================================== */
-/* PRUEBAS DE MEMORIA VIRTUAL - PAGINACIÓN POR DEMANDA                     */
+/* PRUEBAS DE MEMORIA VIRTUAL - PAGINACIÓN POR DEMANDA                        */
 /* ========================================================================== */
 
 /**
@@ -410,4 +411,48 @@ void test_demand(void) {
     unsigned long *peligro = (unsigned long *)0x50000000;
     *peligro = 42; /* ¡BUM! Esto lanzará un Page Fault */
     kprintf("Exito! El valor guardado es: %d\n", *peligro);
+}
+
+/* ========================================================= */
+/* LA GRAN DEMO: Todos los temas funcionando a la vez        */
+/* ========================================================= */
+
+void proceso_demo_1() {
+    kprintf("   [DEMO 1] Iniciando... pidiendo 4KB al Heap (Tema 4)\n");
+    char *mi_memoria = (char *)kmalloc(4096);
+
+    kprintf("   [DEMO 1] Creando archivo en RamDisk (Tema 5)\n");
+    vfs_create("final.txt");
+    int fd = vfs_open("final.txt");
+
+    kprintf("   [DEMO 1] Escribiendo datos y cerrando...\n");
+    vfs_write(fd, "Hola desde el Proceso Demo 1!\n", 30);
+    vfs_close(fd);
+
+    kprintf("   [DEMO 1] Liberando memoria y terminando (Tema 2 y 4)\n");
+    kfree(mi_memoria);
+}
+
+void proceso_demo_2() {
+    /* Le damos tiempo al proceso 1 para que cree el archivo */
+    for(volatile int i=0; i<5000000; i++);
+
+    kprintf("   [DEMO 2] Iniciando... leyendo archivo del RamDisk\n");
+    int fd = vfs_open("final.txt");
+    if (fd >= 0) {
+        char buf[64];
+        int bytes = vfs_read(fd, buf, 63);
+        buf[bytes] = '\0';
+        kprintf("   [DEMO 2] Lei esto: '%s'\n", buf);
+        vfs_close(fd);
+    }
+
+    kprintf("   [DEMO 2] Borrando archivo y terminando...\n");
+    vfs_remove("final.txt");
+}
+
+void ejecutar_gran_demo() {
+    kprintf("\n=== INICIANDO LA GRAN DEMO BAREMETAL OS ===\n");
+    create_process((void(*)(void*)) proceso_demo_1, nullptr, 10, "Demo1");
+    create_process((void(*)(void*)) proceso_demo_2, nullptr, 10, "Demo2");
 }

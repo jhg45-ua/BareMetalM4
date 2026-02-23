@@ -3129,10 +3129,11 @@ void proceso_1() {
 
 - ✅ **Tests Modulares con Argumentos**
   - Comando `test [módulo]` acepta parámetros específicos:
-    - `test all` - Batería completa de tests del sistema
+    - `test all` - Bateria global de tests del sistema (memoria + scheduler)
     - `test rr` - Test de Round-Robin con Quantum (v0.6)
     - `test sem` - Test de Semáforos con Wait Queues (v0.6)
     - `test pf` - Test de Demand Paging con Page Faults (v0.6)
+    - `test demo` - Demo integrada (heap + RamFS en dos procesos)
   - Mensajes de error para módulos no reconocidos
 
 - ✅ **Syscalls Preparatorias para Filesystem**
