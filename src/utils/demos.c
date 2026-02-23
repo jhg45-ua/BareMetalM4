@@ -17,7 +17,7 @@
  *   de memoria) del temario de Sistemas Operativos.
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #include "../../include/utils/demos.h"

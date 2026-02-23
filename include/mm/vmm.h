@@ -21,7 +21,7 @@
  *   - 48 bits de espacio de direcciones virtuales
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #ifndef VMM_H

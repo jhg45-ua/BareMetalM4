@@ -1,6 +1,7 @@
 /**
  * @file kutils.h
  * @brief Utilidades del kernel
+ * @version 0.6.1
  * 
  * @details
  *   Funciones de utilidad general del kernel:

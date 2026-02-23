@@ -25,7 +25,7 @@
  *   - Manejo robusto de excepciones
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #ifndef TESTS_H

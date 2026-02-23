@@ -12,7 +12,7 @@
  *   - Tema 4: Proteccion de memoria (Data Abort en NULL)
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #ifndef DEMOS_H

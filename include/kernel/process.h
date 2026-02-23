@@ -1,6 +1,7 @@
 /**
  * @file process.h
  * @brief Gestión de procesos del kernel
+ * @version 0.6.1
  * 
  * @details
  *   Funciones y estructuras para la gestión de procesos:

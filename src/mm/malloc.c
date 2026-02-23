@@ -1,6 +1,7 @@
 /**
  * @file malloc.c
  * @brief Gestor de heap sencillo (First Fit)
+ * @version 0.6.1
  *
  * @details
  *   Implementa un asignador dinámico minimalista para el kernel:

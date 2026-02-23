@@ -7,7 +7,7 @@
  *   mapeada en memoria en 0x09000000 (QEMU virt).
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #ifndef IO_H

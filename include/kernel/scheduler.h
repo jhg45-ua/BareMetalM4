@@ -18,7 +18,7 @@
  *   5. Expropriación: Cuando quantum=0, se marca need_reschedule
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #ifndef SCHEDULER_H

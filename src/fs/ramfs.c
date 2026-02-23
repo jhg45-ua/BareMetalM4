@@ -1,6 +1,7 @@
 /**
  * @file ramfs.c
  * @brief Implementación del Sistema de Ficheros en Memoria (RamFS)
+ * @version 0.6.1
  * @details
  * Gestiona un disco virtual en la memoria RAM:
  * - Superbloque global
@@ -33,7 +34,7 @@ static file_t fd_table[MAX_FILES];
  * @param size Tamaño total en bytes
  */
 void ramfs_init(unsigned long start_addr, unsigned long size) {
-    kprintf("   [VFS v0.6] Formateando RamDisk en 0x%x (Tamaño: %d KB)...\n", start_addr, size / 1024);
+    kprintf("   [VFS v0.6.1] Formateando RamDisk en 0x%x (Tamaño: %d KB)...\n", start_addr, size / 1024);
 
     ram_disk.start_addr = start_addr;
     ram_disk.total_size = size;
@@ -50,7 +51,7 @@ void ramfs_init(unsigned long start_addr, unsigned long size) {
         /* Asignación de bloques estática: Cada archivo tiene 1 página (4KB) */
         ram_disk.inodes[i].data_ptr = start_addr + (i * MAX_FILE_SIZE);
     }
-    kprintf("   [VFS v0.6] RamDisk montado con éxito. iNodos libres: %d / %d\n", ram_disk.free_inodes, MAX_FILES);
+    kprintf("   [VFS v0.6.1] RamDisk montado con éxito. iNodos libres: %d / %d\n", ram_disk.free_inodes, MAX_FILES);
 }
 
 /**

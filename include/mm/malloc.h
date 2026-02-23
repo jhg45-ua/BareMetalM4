@@ -9,7 +9,7 @@
  *   - Liberación de memoria (kfree)
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #ifndef MALLOC_H

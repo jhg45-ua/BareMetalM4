@@ -12,7 +12,7 @@
  *     asignar una página física bajo demanda
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #include "../../include/mm/pmm.h"
@@ -36,12 +36,13 @@ static unsigned long phys_mem_start = 0;
  * @param start Dirección donde empieza la RAM libre (después del Kernel)
  */
 void pmm_init(unsigned long start, unsigned long size) {
+    (void)size;
     phys_mem_start = start;
 
     /* Inicializamos enteramente a 0 (Libre) */
     memset(mem_map, 0, sizeof(mem_map));
 
-    kprintf("[PMM v0.6] Gestionando %d MB de RAM física desde 0x%x (Demand Paging)\n",
+    kprintf("[PMM v0.6.1] Gestionando %d MB de RAM física desde 0x%x (Demand Paging)\n",
             MEMORY_SIZE / (1024*1024), phys_mem_start);
 }
 

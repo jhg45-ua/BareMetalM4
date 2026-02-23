@@ -11,7 +11,7 @@
  *   - Shell del sistema
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #include "../../include/drivers/io.h"
@@ -47,7 +47,7 @@
  */
 void kernel(void) {
     kprintf("¡¡¡Hola desde BareMetalM4!!!\n");
-    kprintf("Sistema Operativo BareMetalM4 v0.6 iniciando...\n");
+    kprintf("Sistema Operativo BareMetalM4 v0.6.1 iniciando...\n");
     kprintf("Planificador Round-Robin con Quantum + Prioridades + Aging\n");
 
     /* 1. Inicializar Memoria (MMU y Heap) */
@@ -74,7 +74,7 @@ void kernel(void) {
     }
 
     /* 5. Ceder control al Scheduler */
-    kprintf("--- Inicialización de Kernel v0.6 Completada. Pasando control al Planificador ---\n");
+    kprintf("--- Inicialización de Kernel v0.6.1 Completada. Pasando control al Planificador ---\n");
 
     /* ========================================================================== */
     /* LOOP PRINCIPAL (IDLE)                                                     */

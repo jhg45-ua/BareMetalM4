@@ -9,7 +9,7 @@
  *   - Integración con Demand Paging (get_free_page llamado por handle_fault)
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #ifndef PMM_H

@@ -1,6 +1,7 @@
 /**
  * @file shell.h
  * @brief Shell interactivo del sistema
+ * @version 0.6.1
  * 
  * @details
  *   Shell básico con comandos del sistema:

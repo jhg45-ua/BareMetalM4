@@ -12,7 +12,7 @@
  *     * wake_up_time para sleep() sin busy-wait
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #include "../../include/sched.h"
@@ -158,7 +158,7 @@ void init_process_system() {
     current_process = kproc;
     num_process = 1;
 
-    kprintf("   [PROC v0.6] Subsistema de procesos iniciado (Round-Robin + Quantum). PID 0 activo.\n");
+    kprintf("   [PROC v0.6.1] Subsistema de procesos iniciado (Round-Robin + Quantum). PID 0 activo.\n");
 }
 
 
