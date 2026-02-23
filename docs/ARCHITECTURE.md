@@ -48,7 +48,7 @@ Esta refactorización (enero 2026) dividió el código monolítico original en c
 - [Organización de Directorios](#organización-de-directorios)
 - [Descripción de Archivos Clave](#descripción-de-archivos-clave)
 - [Módulos del Kernel](#módulos-del-kernel)
-- [Ventajas de la Arquitectura Modular](#ventajas-de-la-arquitectura-modular)
+- [Mejoras de cada version](#mejoras-de-cada-version)
 
 ### Organización de Directorios
 
@@ -528,32 +528,32 @@ typedef struct {
 ```
 ┌─────────────────────────────────────────────────┐
 │  RAMDISK (1MB en 0x41000000)                    │
-│                                                  │
+│                                                 │
 │  ┌─────────────────┐                            │
 │  │  Superbloque    │  ← Metadatos globales      │
 │  │  - free_inodes  │                            │
 │  │  - total_size   │                            │
 │  └─────────────────┘                            │
-│                                                  │
+│                                                 │
 │  ┌─────────────────┐                            │
 │  │  iNodo[0]       │  ← readme.txt              │
 │  │  - id: 0        │                            │
 │  │  - size: 42     │                            │
 │  │  - data_ptr: ───┼───┐                        │
 │  └─────────────────┘   │                        │
-│                         │                        │
+│                        │                        │
 │  ┌─────────────────┐   │                        │
 │  │  iNodo[1]       │   │                        │
 │  │  - id: 1        │   │                        │
 │  │  - size: 128    │   │                        │
 │  │  - data_ptr: ───┼───┼───┐                    │
 │  └─────────────────┘   │   │                    │
-│                         │   │                    │
-│  ...                    │   │                    │
-│                         ▼   ▼                    │
+│                        │   │                    │
+│  ...                   │   │                    │
+│                        ▼   ▼                    │
 │  ┌──────────────────────────────────────────┐   │
-│  │  Bloques de Datos (4KB cada uno)        │   │
-│  │  [Datos readme.txt] [Datos config.sys]  │   │
+│  │  Bloques de Datos (4KB cada uno)         │   │
+│  │  [Datos readme.txt] [Datos config.sys]   │   │
 │  └──────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────┘
 ```
@@ -633,19 +633,7 @@ void kernel() {
 }
 ```
 
-### Ventajas de la Arquitectura Modular
-
-| Ventaja                             | Descripción                                                |
-|-------------------------------------|------------------------------------------------------------|
-| **Separación de Responsabilidades** | Cada módulo tiene una función específica y bien definida   |
-| **Organización por Subsistemas**    | drivers/, mm/, kernel/, shell/ reflejan componentes del SO |
-| **Mantenibilidad**                  | Más fácil encontrar y modificar código específico          |
-| **Reusabilidad**                    | Módulos pueden ser usados por otros componentes            |
-| **Escalabilidad**                   | Agregar funcionalidades es más sencillo                    |
-| **Legibilidad**                     | Archivos pequeños, más fáciles de entender                 |
-| **Testabilidad**                    | Módulos pueden probarse de forma aislada                   |
-
-**Ejemplo**: Para modificar el algoritmo de scheduling, solo se edita [scheduler.c](../src/kernel/scheduler.c) sin tocar código de procesos, shell, drivers o utilidades.
+### Mejoras de cada version
 
 **Refactorización v0.3 → v0.4**: El código originalmente monolítico fue reorganizado en módulos especializados en enero de 2026. La versión 0.4 estandariza completamente la documentación y comentarios del código, mejorando significativamente la estructura y mantenibilidad del proyecto.
 
@@ -1278,12 +1266,12 @@ Los procesos de usuario solicitan servicios del kernel mediante la instrucción 
 
 **Syscalls Implementadas y Preparatorias**:
 
-| Número | Nombre     | Descripción                | Argumentos                      | Estado          |
-|--------|------------|----------------------------|---------------------------------|-----------------|
-| 0      | SYS_WRITE  | Escribir en consola        | x19 = char *buffer              | ✅ Implementada |
-| 1      | SYS_EXIT   | Terminar proceso           | x19 = int exit_code             | ✅ Implementada |
-| 2      | SYS_OPEN   | Abrir archivo **(v0.6)**   | x0 = path, x1 = mode            | 🔄 Stub         |
-| 3      | SYS_READ   | Leer archivo **(v0.6)**    | x0 = fd, x1 = buf, x2 = size    | 🔄 Stub         |
+| Número | Nombre    | Descripción              | Argumentos                   | Estado         |
+|--------|-----------|--------------------------|------------------------------|----------------|
+| 0      | SYS_WRITE | Escribir en consola      | x19 = char *buffer           | ✅ Implementada |
+| 1      | SYS_EXIT  | Terminar proceso         | x19 = int exit_code          | ✅ Implementada |
+| 2      | SYS_OPEN  | Abrir archivo **(v0.6)** | x0 = path, x1 = mode         | 🔄 Stub        |
+| 3      | SYS_READ  | Leer archivo **(v0.6)**  | x0 = fd, x1 = buf, x2 = size | 🔄 Stub        |
 
 **Nota sobre Syscalls Preparatorias (v0.6)**: 
 `SYS_OPEN` y `SYS_READ` están definidas y tienen handlers stub que imprimen mensajes de debug. 
@@ -1512,20 +1500,20 @@ vectors.S: el0_sync
     ├─ Lee ESR_EL1 (Exception Syndrome Register)
     ├─ Verifica tipo de excepción
     └─ Si no es SVC → error_invalid
-    
+    │
     ▼
 error_invalid (entry.S)
     │
     ├─ kernel_entry (asegura contexto guardado)
     └─ bl handle_fault  // Llama a C
-    
+    │
     ▼
 handle_fault() (sys.c)
     │
     ├─ Imprime mensaje de diagnóstico
     ├─ Llama a exit() para terminar proceso
     └─ Nunca retorna
-    
+    │
     ▼
 exit() (process.c)
     │
@@ -2264,23 +2252,23 @@ BareMetalM4 v0.6 implementa un **sistema de archivos virtual en memoria** (RamFS
 ```
 ┌──────────────────────────────────────────────────────┐
 │                  KERNEL SPACE                        │
-│                                                       │
-│  ┌───────────────┐         ┌──────────────────┐     │
-│  │  Shell/Apps   │────────▶│  VFS API         │     │
-│  │  - touch      │         │  - vfs_create()  │     │
-│  │  - cat        │         │  - vfs_open()    │     │
-│  │  - write      │         │  - vfs_read()    │     │
-│  └───────────────┘         │  - vfs_write()   │     │
-│                            │  - vfs_close()   │     │
-│                            └────────┬─────────┘     │
-│                                     │               │
-│                            ┌────────▼─────────┐     │
-│                            │  RamFS Driver    │     │
-│                            │  - Superbloque   │     │
-│                            │  - iNodo mgmt    │     │
-│                            │  - FD table      │     │
-│                            └────────┬─────────┘     │
-└─────────────────────────────────────┼───────────────┘
+│                                                      │
+│  ┌───────────────┐         ┌──────────────────┐      │
+│  │  Shell/Apps   │────────▶│  VFS API         │      │
+│  │  - touch      │         │  - vfs_create()  │      │
+│  │  - cat        │         │  - vfs_open()    │      │
+│  │  - write      │         │  - vfs_read()    │      │
+│  └───────────────┘         │  - vfs_write()   │      │
+│                            │  - vfs_close()   │      │
+│                            └────────┬─────────┘      │
+│                                     │                │
+│                            ┌────────▼─────────┐      │
+│                            │  RamFS Driver    │      │
+│                            │  - Superbloque   │      │
+│                            │  - iNodo mgmt    │      │
+│                            │  - FD table      │      │
+│                            └────────┬─────────┘      │
+└─────────────────────────────────────┼────────────────┘
                                       │
                             ┌─────────▼─────────┐
                             │  RAMDISK          │
@@ -2959,14 +2947,14 @@ void proceso_1() {
 │           │                                                  │
 │           └──────────┬───────────────┬──────┐                │
 │                      │               │      │                │
-│           ┌──────────▼──┐    ┌───────▼─┐   │                 │
-│           │   GIC Dist  │    │ Timer   │   │                 │
-│           │ (0x08000000)│    │ (ARM64) │   │                 │
-│           └─────────────┘    └────┬────┘   │                 │
-│                                   │        │                 │
-│           ┌───────────┬───────────┘        │                 │
-│           │           │                    │                 │
-│   ┌───────▼────┐  ┌──▼──────────┐   ┌────▼──────────┐        │
+│           ┌──────────▼──┐    ┌───────▼─┐    │                │
+│           │   GIC Dist  │    │ Timer   │    │                │
+│           │ (0x08000000)│    │ (ARM64) │    │                │
+│           └─────────────┘    └────┬────┘    │                │
+│                                   │         │                │
+│           ┌───────────┬───────────┘         │                │
+│           │           │                     │                │
+│   ┌───────▼────┐  ┌──▼──────────┐   ┌───────▼───────┐        │
 │   │ UART (TTY) │  │ GIC CPU If  │   │ Kernel Code   │        │
 │   │(0x09000000)│  │(0x08010000) │   │ + User Procs  │        │
 │   └────────────┘  └─────────────┘   └───────────────┘        │
