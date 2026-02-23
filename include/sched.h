@@ -71,7 +71,6 @@
  * @brief Constantes de configuración del sistema
  * 
  * MAX_PROCESS (64): Número máximo de procesos simultáneos
- * BUFFER_SIZE (4): Tamaño de buffers internos
  * DEFAULT_QUANTUM (5): Quantum de Round-Robin en ticks
  *   - Cada proceso recibe 5 ticks de CPU antes de ser expropiado
  *   - Se decrementa en timer_tick()
@@ -79,7 +78,6 @@
  *   - Balance entre responsividad y overhead de context switch
  */
 #define MAX_PROCESS 64
-#define BUFFER_SIZE 4
 #define DEFAULT_QUANTUM 5  /* Ticks de quantum para Round-Robin */
 
 /* ========================================================================== */

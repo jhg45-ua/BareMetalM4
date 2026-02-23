@@ -28,14 +28,6 @@ void panic(const char *msg) {
 }
 
 /**
- * @brief Retardo activo (busy-wait)
- * @param count Número de iteraciones
- */
-void delay(int count) {
-    for (volatile int i = 0; i < count; i++);
-}
-
-/**
  * @brief Compara dos cadenas de caracteres
  * @param s1 Primera cadena
  * @param s2 Segunda cadena
@@ -89,20 +81,4 @@ void *memset(void *s, int c, unsigned long n) {
         *p++ = (unsigned char)c;
     }
     return s;
-}
-
-/**
- * @brief Copia un bloque de memoria de origen a destino
- * @param dest Puntero al destino
- * @param src Puntero al origen
- * @param n Número de bytes a copiar
- * @return Puntero al destino (dest)
- */
-void *memcpy(void *dest, const void *src, unsigned long n) {
-    char *d = (char *)dest;
-    const char *s = (const char *)src;
-    while (n--) {
-        *d++ = *s++;
-    }
-    return dest;
 }

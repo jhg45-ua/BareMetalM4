@@ -6,8 +6,8 @@
  *   Define constantes, macros y funciones para gestión de memoria virtual ARM64:
  *   
  *   TABLAS DE PÁGINAS:
- *   - Descriptores ARM64 (PT_TABLE, PT_PAGE, PT_BLOCK)
- *   - Atributos de memoria (permisos, shareability, ejecutabilidad)
+ *   - Descriptores ARM64 (PT_TABLE, PT_PAGE)
+ *   - Atributos de memoria (permisos, shareability)
  *   - Macros para extraer índices L1/L2/L3 de direcciones virtuales
  *   
  *   INTEGRACIÓN CON DEMAND PAGING:
@@ -38,11 +38,9 @@
  * 
  * PT_TABLE (=3): Entrada apunta a tabla de siguiente nivel (L1→L2, L2→L3)
  * PT_PAGE (=3):  Entrada final apunta a página física (L3)
- * PT_BLOCK (=1): Entrada es un bloque grande 2MB/1GB (L1/L2)
  */
 #define PT_TABLE     3     /* Entrada apunta a siguiente nivel (L1, L2) */
 #define PT_PAGE      3     /* Entrada apunta a página física (L3) */
-#define PT_BLOCK     1     /* Entrada es un bloque grande (L1, L2) */
 
 /* ========================================================================== */
 /* ATRIBUTOS DE MEMORIA (Lower Attributes)                                  */
@@ -53,18 +51,14 @@
  * 
  * MM_ACCESS: Access Flag (AF) - Debe estar en 1 para páginas válidas
  * MM_SH: Shareability (Inner) - Para coherencia de cache multicore
- * MM_RO/RW: Permisos de escritura
+ * MM_RW: Permisos de lectura/escritura
  * MM_USER/KERNEL: Accesible desde EL0 o solo EL1
- * MM_EXEC/NOEXEC: Execute Never (XN) - Previene ejecución de código
  */
 #define MM_ACCESS    (1 << 10) /* Access Flag (AF) - Debe estar a 1 */
 #define MM_SH        (3 << 8)  /* Shareable (Inner) */
-#define MM_RO        (1 << 7)  /* Read Only */
 #define MM_RW        (0 << 7)  /* Read Write */
 #define MM_USER      (1 << 6)  /* Accesible por EL0 (usuario) */
 #define MM_KERNEL    (0 << 6)  /* Solo EL1 (kernel) */
-#define MM_EXEC      (0UL << 54) /* Execute Never (XN) = 0 (Ejecutable) */
-#define MM_NOEXEC    (1UL << 54) /* Execute Never (XN) = 1 (No Ejecutable) */
 
 /* ========================================================================== */
 /* INDICES MAIR (Memory Attribute Indirection Register)                     */

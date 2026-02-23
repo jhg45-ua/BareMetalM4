@@ -198,9 +198,6 @@ void shell_task(void) {
                 if (arg[0] == '\0' || k_strcmp(arg, "all") == 0) {
                     kprintf("Iniciando batería de tests general...\n");
                     test_memory();
-
-                    // test_processes();
-
                     test_scheduler();
                 }
                 /* Test del Tema 2: Round-Robin y Quantum */

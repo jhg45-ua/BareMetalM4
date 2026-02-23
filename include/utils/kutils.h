@@ -5,8 +5,8 @@
  * @details
  *   Funciones de utilidad general del kernel:
  *   - Panic del sistema
- *   - Delays
  *   - Manipulación de strings
+ *   - Operaciones de memoria (memset)
  */
 
 #ifndef KUTILS_H
@@ -17,12 +17,6 @@
  * @param msg Mensaje de error a mostrar
  */
 void panic(const char *msg);
-
-/**
- * @brief Retardo activo (busy-wait)
- * @param count Número de iteraciones
- */
-void delay(int count);
 
 /**
  * @brief Compara dos cadenas de caracteres
@@ -55,14 +49,5 @@ int k_strlen(const char *str);
  * @return Puntero al bloque (s)
  */
 void *memset(void *s, int c, unsigned long n);
-
-/**
- * @brief Copia un bloque de memoria
- * @param dest Destino
- * @param src Origen
- * @param n Número de bytes
- * @return Puntero al destino
- */
-void *memcpy(void *dest, const void *src, unsigned long n);
 
 #endif /* KUTILS_H */

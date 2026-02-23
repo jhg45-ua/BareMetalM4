@@ -184,68 +184,6 @@ void test_scheduler(void) {
 }
 
 /* ========================================================================== */
-/* PRUEBAS DE SYSCALLS Y SEGURIDAD                                           */
-/* ========================================================================== */
-
-/**
- * @brief Proceso de usuario en EL0 que ejecuta syscalls
- * 
- * @details
- *   Demuestra el uso de llamadas al sistema desde nivel de usuario:
- *   - SYS_WRITE (0): Imprime mensaje en consola
- *   - SYS_EXIT (1): Termina el proceso limpiamente
- *   
- *   Utiliza ensamblador inline para invocar syscalls via SVC.
- */
-void user_task() {
-    char *msg = "\n[USER] Hola desde EL0! Soy un proceso restringido.\n";
-
-    /* Syscall Write (0) */
-    asm volatile(
-        "mov x8, #0\n"      // Número de syscall en x8
-        "mov x19, %0\n"     // Argumento (mensaje) en x19
-        "svc #0\n"          // Supervisor Call
-        : : "r"(msg) : "x8", "x19"
-    );
-
-    /* Bucle para probar multitarea */
-    for(int i=0; i<10000000; i++) asm volatile("nop");
-
-    /* Syscall Exit (1) */
-    asm volatile(
-        "mov x8, #1\n"      // Número de syscall en x8
-        "mov x19, #0\n"     // Código de salida en x19
-        "svc #0\n"          // Supervisor Call
-        : : : "x8", "x19"
-    );
-}
-
-/**
- * @brief Proceso que intenta violar segmentación de memoria
- * 
- * @details
- *   Prueba de robustez del manejo de excepciones.
- *   Intenta escribir en dirección NULL (0x0), lo cual debería:
- *   - Generar un Data Abort / Page Fault
- *   - Ser capturado por handle_fault()
- *   - Terminar el proceso sin colapsar el sistema
- *   
- *   Si se imprime el mensaje final, el manejo de excepciones falló.
- */
-void kamikaze_test() {
-    kprintf("\n[KAMIKAZE] Soy un proceso malo. Voy a escribir en NULL...\n");
-
-    /* Intentamos escribir en la dirección 0x0 (prohibida/no mapeada) */
-    int *p = (int *)nullptr;
-    *p = 1234;  /* ¡CRASH esperado! */
-
-    kprintf("[KAMIKAZE] Si lees esto, la seguridad ha fallado\n");
-
-    /* Salida normal (no deberíamos llegar aquí) */
-    asm volatile("mov x8, #1; mov x19, #0; svc #0");
-}
-
-/* ========================================================================== */
 /* PRUEBAS DE ROUND-ROBIN CON QUANTUM (PREEMPTION)                         */
 /* ========================================================================== */
 
