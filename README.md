@@ -1,8 +1,8 @@
-# BareMetalM4 v0.6 - Kernel Educativo ARM64
+# BareMetalM4 v0.6.1 - Kernel Educativo ARM64
 
-**BareMetalM4 v0.6** es un kernel *bare-metal* educativo para **ARM64 (AArch64)** diseñado para aprender los fundamentos de sistemas operativos ejecutándose en QEMU.
+**BareMetalM4 v0.6.1** es un kernel *bare-metal* educativo para **ARM64 (AArch64)** diseñado para aprender los fundamentos de sistemas operativos ejecutándose en QEMU.
 
-## ✨ Características Principales (v0.6)
+## Características Principales
 
 - **Arquitectura:** ARM64 (ARMv8-A) Cortex-A72
 - **Plataforma:** QEMU `virt` machine
@@ -23,8 +23,9 @@
 - **Sistema de Tests Modular:** Validación de Round-Robin, Semáforos y Demand Paging
 - **Syscalls:** Interfaz para modo usuario (SYS_WRITE, SYS_EXIT, stubs SYS_OPEN/READ)
 - **Sin dependencias:** Sin librerías estándar (`-ffreestanding -nostdlib`)
+- **Compilación limpia:** Cero warnings con `-Wall -Wextra`
 
-## 📂 Estructura Modular (v0.6)
+## Estructura Modular
 
 El kernel está organizado en módulos especializados:
 
@@ -43,37 +44,45 @@ src/
 │   ├── malloc.c    # Asignador dinámico (64MB heap)
 │   ├── pmm.c       # Physical Memory Manager (bitmap)
 │   └── vmm.c       # Virtual Memory Manager (Demand Paging)
-├── fs/             # Sistema de archivos (v0.6)
+├── fs/             # Sistema de archivos
 │   └── ramfs.c     # RamFS: VFS, iNodos, File Descriptors
 ├── shell/          # Interfaz de usuario
 │   └── shell.c     # Shell + 11 comandos + parser
 ├── utils/          # Utilidades
-│   ├── kutils.c    # panic, delay, strings (k_strlen)
-│   └── tests.c     # Tests modulares (RR, Sem, PF)
+│   ├── kutils.c    # panic, strings (k_strlen, k_strcmp)
+│   ├── tests.c     # Tests modulares (RR, Sem, PF)
+│   └── demos.c     # Código educativo de referencia
 └── semaphore.c     # Semáforos con Wait Queues
 ```
 
-Ver [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) para documentación completa.
+## Documentación
 
-## 🛠️ Requisitos
+| Documento | Descripción |
+|-----------|-------------|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Arquitectura completa del kernel (~3,300 líneas) |
+| [docs/TEMARIO.md](docs/TEMARIO.md) | Mapeo Temario universitario → Código fuente |
+| [docs/GUIA_ENSAMBLADOR_ARM64.md](docs/GUIA_ENSAMBLADOR_ARM64.md) | Tutorial de ensamblador ARM64 con ejemplos del proyecto |
+
+## Requisitos
 
 - **QEMU:** `qemu-system-aarch64`
-- **Toolchain AArch64:** `aarch64-none-elf-gcc` (o `aarch64-linux-gnu-gcc`)
+- **Toolchain AArch64:** `aarch64-elf-gcc` (o `aarch64-linux-gnu-gcc`)
 - **Make**
 
-### Instalación macOS (M1/M2/M3/M4)
+### Instalación macOS (Apple Silicon)
 ```bash
-brew install qemu aarch64-none-elf-gcc
+brew install qemu
+brew install --cask gcc-aarch64-embedded
 ```
 
-### Instalación Linux (ARM64)
+### Instalación Linux
 ```bash
 sudo apt install gcc-aarch64-linux-gnu qemu-system-arm make
 ```
 
 *Nota: Ajusta `CC` y `LD` en el Makefile si usas `aarch64-linux-gnu-gcc`.*
 
-## ⚙️ Compilación y Ejecución
+## Compilación y Ejecución
 
 ```bash
 # Compilar
@@ -88,67 +97,71 @@ make clean
 
 **Salir de QEMU:** `Ctrl+A` luego `x`
 
-## 🎯 Comandos del Shell (v0.6)
+## Comandos del Shell
 
-Una vez ejecutado, el sistema arranca un shell interactivo con los siguientes comandos:
+Una vez ejecutado, el sistema arranca un shell interactivo:
 
 ### Gestión del Sistema
-- `help` - Muestra todos los comandos disponibles
-- `ps` - Lista procesos (PID, prioridad, estado, tiempo de CPU, nombre)
-- `clear` - Limpia la pantalla (códigos ANSI)
-- `panic` - Provoca un kernel panic (demo)
-- `poweroff` - Apaga el sistema (semihosting)
+| Comando | Descripción |
+|---------|-------------|
+| `help` | Muestra todos los comandos disponibles |
+| `ps` | Lista procesos (PID, prioridad, estado, tiempo de CPU, nombre) |
+| `clear` | Limpia la pantalla (códigos ANSI) |
+| `panic` | Provoca un kernel panic (demo) |
+| `poweroff` | Apaga el sistema (semihosting) |
 
-### Sistema de Archivos (v0.6)
-- `touch [archivo]` - Crea un archivo vacío en el RamFS
-- `rm [archivo]` - Elimina un archivo del disco virtual
-- `ls` - Lista archivos (ID, tamaño, nombre)
-- `cat [archivo]` - Muestra el contenido de un archivo
-- `write [archivo]` - Escribe texto predefinido en un archivo
+### Sistema de Archivos
+| Comando | Descripción |
+|---------|-------------|
+| `touch [archivo]` | Crea un archivo vacío en el RamFS |
+| `rm [archivo]` | Elimina un archivo del disco virtual |
+| `ls` | Lista archivos (ID, tamaño, nombre) |
+| `cat [archivo]` | Muestra el contenido de un archivo |
+| `write [archivo]` | Escribe texto predefinido en un archivo |
 
-### Tests del Sistema (v0.6)
-- `test all` - Bateria global de tests (memoria + scheduler)
-- `test rr` - Test de Round-Robin con Quantum
-- `test sem` - Test de Semáforos con Wait Queues
-- `test pf` - Test de Demand Paging (Page Faults)
-- `test demo` - Demo integrada (heap + RamFS en dos procesos)
+### Tests del Sistema
+| Comando | Descripción |
+|---------|-------------|
+| `test all` | Batería global de tests (memoria + scheduler) |
+| `test rr` | Test de Round-Robin con Quantum |
+| `test sem` | Test de Semáforos con Wait Queues |
+| `test pf` | Test de Demand Paging (Page Faults) |
+| `test demo` | Demo integrada (heap + RamFS en dos procesos) |
 
-## 📖 Documentación Completa
+## Historial de Versiones
 
-Para información detallada sobre la arquitectura, consulta:
+### v0.6.1 (Febrero 23, 2026)
+- Corrección de bug en `vectors.S`: vector EL0 IRQ (+0x480) redirigía a `el0_sync` en vez de `el0_irq`
+- Corrección de parsing en `shell.c`: comandos comparaban contra buffer completo en vez de primer token
+- Eliminación de código muerto: funciones educativas movidas a `demos.c`
+- Eliminación de funciones no utilizadas (`delay`, `memcpy`, `create_thread`)
+- Unificación de `NULL` (`#define NULL ((void*)0)` en `types.h`) sustituyendo `nullptr`
+- Corrección de typo `prempt_count` → `preempt_count`
+- Deduplicación de `PAGE_SIZE` (canónico en `pmm.h`)
+- Consolidación de declaraciones `extern` dispersas en headers propios
+- Compilación limpia: cero warnings con `-Wall -Wextra`
+- Versionado uniforme: `@version 0.6.1` en todos los archivos fuente (.c, .h, .S)
+- Nuevo documento: `docs/TEMARIO.md` — mapeo temario universitario → código
 
-**[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Documentación completa v0.6 que incluye:
-- Estructura modular detallada (~3,200 líneas de código)
-- Subsistemas avanzados:
-  - Planificador Round-Robin con Quantum
-  - Semáforos con Wait Queues (sin busy-wait)
-  - Demand Paging y gestión de Page Faults
-  - Sistema de archivos RamFS con VFS
-- Flujo de ejecución completo con diagramas ASCII
-- Decisiones de diseño y limitaciones conocidas
-- Historial de cambios (v0.4 → v0.5 → v0.6)
+### v0.6 (Enero 26, 2026)
+- VFS (Virtual File System) con RamFS: iNodos, File Descriptors, 64 archivos
+- 5 nuevos comandos de filesystem: `touch`, `rm`, `ls`, `cat`, `write`
+- Parser de argumentos en shell (11 comandos totales)
+- Tests modulares: `test [all|rr|sem|pf|demo]`
+- Syscalls preparatorias: `SYS_OPEN`, `SYS_READ` como stubs
+- Reorganización modular de includes (`fs/`, `shell/`, `utils/`)
 
-## 🚀 Novedades en v0.6 (Enero 26, 2026)
+### v0.5
+- Planificador Round-Robin con Quantum + Prioridades + Aging
+- Semáforos con Wait Queues (sin busy-wait)
+- Demand Paging mediante Page Faults
+- Asignador dinámico `kmalloc`/`kfree` con heap de 64MB
 
-### Sistema de Archivos en Memoria (RamFS)
-- ✅ **VFS (Virtual File System)** con soporte de iNodos y File Descriptors
-- ✅ **64 archivos** simultáneos, 4KB por archivo
-- ✅ **Operaciones**: create, open, read, write, close, remove, ls
-- ✅ **Integración con shell**: 5 nuevos comandos de filesystem
-
-### Mejoras del Shell
-- ✅ **Parser de argumentos** completo
-- ✅ **11 comandos totales** (6 nuevos desde v0.5)
-- ✅ **Tests modulares**: `test [all|rr|sem|pf]`
-
-### Preparación para Modo Usuario
-- ✅ **Syscalls preparatorias**: `SYS_OPEN` (2), `SYS_READ` (3) como stubs
-- ✅ **Reorganización de includes**: `fs/`, `shell/`, `utils/`
-
-### Utilidades
-- ✅ Nueva función: `k_strlen()` para soporte de strings
-- ✅ Limpieza de zombies mejorada (`free_zombie`)
+### v0.4
+- MMU con tablas multinivel (L1/L2/L3), páginas de 4KB
+- GIC v2 + Timer con cambio de contexto automático
+- Shell interactivo básico
 
 ---
 
-*Proyecto educativo para aprendizaje de sistemas operativos en ARM64*
+*Proyecto educativo para la asignatura de Sistemas Operativos — ARM64 bare-metal en QEMU*

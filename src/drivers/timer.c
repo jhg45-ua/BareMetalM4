@@ -49,20 +49,19 @@
  *   @endcode
  * 
  * @author Sistema Operativo Educativo
- * @version 0.6
+ * @version 0.6.1
  * @see timer.h para interfaz pública
  */
 
 #include "../../include/drivers/timer.h"
 #include "../../include/drivers/io.h"
+#include "../../include/kernel/scheduler.h"
 #include "../../include/types.h"
 
 /* Definimos GICD_ISENABLER para habilitar IDs */
 /* ID 0-31 están en ISENABLER0 (Offset 0x100) */
 /* ID 32-63 están en ISENABLER1 (Offset 0x104) */
 #define GICD_ISENABLER1 ((volatile uint32_t *)(GICD_BASE + 0x104))
-
-extern void timer_tick();
 
 /* Inicializa el sistema de interrupciones y el timer del sistema */
 void timer_init() {

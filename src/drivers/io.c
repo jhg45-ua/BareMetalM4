@@ -17,7 +17,7 @@
  *   - Interrupciones (polling en lugar de event-driven)
  * 
  * @author Sistema Operativo Educativo
- * @version 0.6
+ * @version 0.6.1
  * @see io.h para interfaz pública
  */
 

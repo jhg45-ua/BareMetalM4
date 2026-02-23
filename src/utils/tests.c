@@ -20,27 +20,20 @@
  *   - Heap dinámico con kmalloc/kfree
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #include "../../include/utils/tests.h"
+#include "../../include/types.h"
 #include "../../include/drivers/io.h"
+#include "../../include/drivers/timer.h"
 #include "../../include/kernel/scheduler.h"
 #include "../../include/utils/kutils.h"
 #include "../../include/kernel/process.h"
 #include "../../include/mm/malloc.h"
+#include "../../include/mm/mm.h"
 #include "../../include/semaphore.h"
 #include "../../include/fs/vfs.h"
-
-/* ========================================================================== */
-/* FUNCIONES EXTERNAS (Ensamblador)                                         */
-/* ========================================================================== */
-
-/* Obtiene el valor del registro SCTLR_EL1 (System Control Register) */
-extern unsigned long get_sctlr_el1(void);
-
-/* Habilita las interrupciones IRQ en el procesador */
-extern void enable_interrupts(void);
 
 /**
  * @brief Ejecuta pruebas del sistema de memoria dinámica
@@ -157,9 +150,9 @@ void test_processes(void) {
     kprintf("\n[TEST] --- Probando Ciclo de Vida (Zombies/Exit) ---\n");
 
     /* Lanzamos 3 procesos que morirán pronto */
-    create_process((void(*)(void*))proceso_mortal, nullptr, 10, "Mortal_A");
-    create_process((void(*)(void*))proceso_mortal, nullptr, 10, "Mortal_B");
-    create_process((void(*)(void*))proceso_mortal, nullptr, 10, "Mortal_C");
+    create_process((void(*)(void*))proceso_mortal, NULL, 10, "Mortal_A");
+    create_process((void(*)(void*))proceso_mortal, NULL, 10, "Mortal_B");
+    create_process((void(*)(void*))proceso_mortal, NULL, 10, "Mortal_C");
 }
 
 /**
@@ -179,70 +172,8 @@ void test_scheduler(void) {
     kprintf("\n[TEST] --- Probando Multitarea y Sleep ---\n");
 
     /* P1 duerme mucho, P2 duerme poco */
-    create_process((void(*)(void*))proceso_1, nullptr, 20, "Lento");
-    create_process((void(*)(void*))proceso_2, nullptr, 10, "Rapido");
-}
-
-/* ========================================================================== */
-/* PRUEBAS DE SYSCALLS Y SEGURIDAD                                           */
-/* ========================================================================== */
-
-/**
- * @brief Proceso de usuario en EL0 que ejecuta syscalls
- * 
- * @details
- *   Demuestra el uso de llamadas al sistema desde nivel de usuario:
- *   - SYS_WRITE (0): Imprime mensaje en consola
- *   - SYS_EXIT (1): Termina el proceso limpiamente
- *   
- *   Utiliza ensamblador inline para invocar syscalls via SVC.
- */
-void user_task() {
-    char *msg = "\n[USER] Hola desde EL0! Soy un proceso restringido.\n";
-
-    /* Syscall Write (0) */
-    asm volatile(
-        "mov x8, #0\n"      // Número de syscall en x8
-        "mov x19, %0\n"     // Argumento (mensaje) en x19
-        "svc #0\n"          // Supervisor Call
-        : : "r"(msg) : "x8", "x19"
-    );
-
-    /* Bucle para probar multitarea */
-    for(int i=0; i<10000000; i++) asm volatile("nop");
-
-    /* Syscall Exit (1) */
-    asm volatile(
-        "mov x8, #1\n"      // Número de syscall en x8
-        "mov x19, #0\n"     // Código de salida en x19
-        "svc #0\n"          // Supervisor Call
-        : : : "x8", "x19"
-    );
-}
-
-/**
- * @brief Proceso que intenta violar segmentación de memoria
- * 
- * @details
- *   Prueba de robustez del manejo de excepciones.
- *   Intenta escribir en dirección NULL (0x0), lo cual debería:
- *   - Generar un Data Abort / Page Fault
- *   - Ser capturado por handle_fault()
- *   - Terminar el proceso sin colapsar el sistema
- *   
- *   Si se imprime el mensaje final, el manejo de excepciones falló.
- */
-void kamikaze_test() {
-    kprintf("\n[KAMIKAZE] Soy un proceso malo. Voy a escribir en NULL...\n");
-
-    /* Intentamos escribir en la dirección 0x0 (prohibida/no mapeada) */
-    int *p = (int *)nullptr;
-    *p = 1234;  /* ¡CRASH esperado! */
-
-    kprintf("[KAMIKAZE] Si lees esto, la seguridad ha fallado\n");
-
-    /* Salida normal (no deberíamos llegar aquí) */
-    asm volatile("mov x8, #1; mov x19, #0; svc #0");
+    create_process((void(*)(void*))proceso_1, NULL, 20, "Lento");
+    create_process((void(*)(void*))proceso_2, NULL, 10, "Rapido");
 }
 
 /* ========================================================================== */
@@ -294,7 +225,7 @@ void tarea_egoista(void) {
 void test_quantum(void) {
     kprintf("\n[TEST] --- Probando Round-Robin (Preemption) ---\n");
     /* Pasamos NULL al argumento si ya arreglaste create_process */
-    create_process((void(*)(void*))tarea_egoista, nullptr, 10, "Egoista");
+    create_process((void(*)(void*))tarea_egoista, NULL, 10, "Egoista");
 }
 
 /* ========================================================================== */
@@ -374,11 +305,11 @@ void test_semaphores_efficiency(void) {
     sem_init(&sem_prueba, 1);
 
     /* Lanzamos al que tiene el candado */
-    create_process((void(*)(void*))tarea_holder, (void*)nullptr, 10, "Holder");
+    create_process((void(*)(void*))tarea_holder, (void*)NULL, 10, "Holder");
 
     /* Lanzamos al que espera. Dale menos prioridad o lánzalo un pelín después */
     /* Nota: Si lanzamos al waiter inmediatamente, aseguramos que se bloquee */
-    create_process((void(*)(void*))tarea_waiter, (void*)nullptr, 10, "Waiter");
+    create_process((void(*)(void*))tarea_waiter, (void*)NULL, 10, "Waiter");
 }
 
 /* ========================================================================== */
@@ -453,6 +384,6 @@ void proceso_demo_2() {
 
 void ejecutar_gran_demo() {
     kprintf("\n=== INICIANDO LA GRAN DEMO BAREMETAL OS ===\n");
-    create_process((void(*)(void*)) proceso_demo_1, nullptr, 10, "Demo1");
-    create_process((void(*)(void*)) proceso_demo_2, nullptr, 10, "Demo2");
+    create_process((void(*)(void*)) proceso_demo_1, NULL, 10, "Demo1");
+    create_process((void(*)(void*)) proceso_demo_2, NULL, 10, "Demo2");
 }

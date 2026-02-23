@@ -24,13 +24,21 @@
  *   @endcode
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #ifndef SEMAPHORE_H
 #define SEMAPHORE_H
 
 #include "sched.h"
+
+/* ========================================================================== */
+/* FUNCIONES EXTERNAS (Ensamblador - locks.S)                               */
+/* ========================================================================== */
+
+/* Spinlocks atómicos implementados en ARM64 assembly (LDXR/STXR) */
+extern void spin_lock(volatile int *lock);
+extern void spin_unlock(volatile int *lock);
 
 /* ========================================================================== */
 /* ESTRUCTURAS                                                               */

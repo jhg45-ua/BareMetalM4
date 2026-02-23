@@ -1,10 +1,11 @@
 /**
  * @file process.h
  * @brief Gestión de procesos del kernel
+ * @version 0.6.1
  * 
  * @details
  *   Funciones y estructuras para la gestión de procesos:
- *   - Creación de threads
+ *   - Creación de procesos del kernel
  *   - Terminación de procesos
  *   - Acceso a las estructuras de procesos (PCB)
  *   - PCBs con soporte para Round-Robin (quantum) y Wait Queues (next)
@@ -19,7 +20,6 @@
 extern struct pcb process[MAX_PROCESS];
 extern struct pcb *current_process;
 extern int num_process;
-// extern uint8_t process_stack[MAX_PROCESS][4096];
 
 /**
  * @brief Crea un nuevo thread del kernel
@@ -34,21 +34,6 @@ extern int num_process;
  *   El quantum se asignará cuando el proceso sea elegido por primera vez.
  */
 long create_process(void (*fn)(void*), void *arg, int priority, const char *name);
-
-/**
- * @brief Crea un Hilo del Kernel (Kernel Thread)
- * @param fn Función a ejecutar
- * @param priority Prioridad inicial del proceso
- * @param name Nombre descriptivo del proceso
- * @return PID del proceso creado, -1 en caso de error
- * 
- * @details
- *   En BareMetalM4 (v0.6), como no hay separación de memoria virtual por proceso,
- *   todos los procesos son técnicamente hilos del kernel que comparten espacio de direcciones.
- *   
- *   Wrapper sobre create_process() que pasa NULL como argumento.
- */
-long create_thread(void (*fn)(void*), int priority, const char *name);
 
 /**
  * @brief Inicializa el subsistema de gestión de procesos
@@ -84,23 +69,5 @@ void schedule_tail(void);
  *   marcándolos como UNUSED para reutilización.
  */
 void free_zombie();
-
-/**
- * @brief Crea un proceso de usuario (EL0)
- * @param user_fn Función que se ejecutará en modo usuario
- * @param name Nombre descriptivo del proceso
- * @return PID del proceso creado, -1 en caso de error
- * 
- * @details
- *   Crea un proceso que ejecuta en modo usuario (EL0) con menor privilegio.
- *   Útil para demostrar:
- *   - Protección de memoria
- *   - Demand Paging (Page Faults desde usuario)
- *   - Aislamiento de fallos
- *   
- *   El proceso kernel wrapper realiza la transición a EL0 mediante
- *   move_to_user_mode() en ensamblador.
- */
-long create_user_process(void (*user_fn)(void), const char *name);
 
 #endif /* PROCESS_H */

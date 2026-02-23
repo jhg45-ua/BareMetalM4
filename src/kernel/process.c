@@ -12,11 +12,12 @@
  *     * wake_up_time para sleep() sin busy-wait
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #include "../../include/sched.h"
 #include "../../include/drivers/io.h"
+#include "../../include/drivers/timer.h"
 #include "../../include/kernel/process.h"
 #include "../../include/kernel/scheduler.h"
 #include "../../include/utils/kutils.h"
@@ -35,20 +36,14 @@ struct pcb *current_process;
 /* Contador del número total de procesos creados */
 int num_process = 0;
 
-/* Stacks de ejecución para cada proceso (256KB total) */
-// uint8_t process_stack[MAX_PROCESS][4096] __attribute__((aligned(16)));
+/* Stacks de ejecución para cada proceso se asignan dinámicamente con kmalloc() */
 
 /* ========================================================================== */
 /* FUNCIONES EXTERNAS (Ensamblador)                                           */
 /* ========================================================================== */
 
-/* Habilita las interrupciones IRQ en el procesador */
-extern void enable_interrupts(void);
-
 /* Punto de entrada para nuevos procesos (src/entry.S) */
 extern void ret_from_fork(void);
-
-extern void move_to_user_mode(unsigned long pc, unsigned long sp);
 
 /* ========================================================================== */
 /* CREACION DE PROCESOS                                                      */
@@ -69,7 +64,7 @@ extern void move_to_user_mode(unsigned long pc, unsigned long sp);
  *   3. Configurar PCB:
  *      - quantum: Se inicializará en schedule() al ser elegido
  *      - state: PROCESS_READY
- *      - next: nullptr (para wait queues de semáforos)
+ *      - next: NULL (para wait queues de semáforos)
  *      - block_reason: BLOCK_REASON_NONE
  *   4. Configurar contexto de ejecución (ret_from_fork)
  *   
@@ -110,7 +105,7 @@ long create_process(void (*fn)(void*), void *arg, int priority, const char *name
     p->pid = pid;
     p->state = PROCESS_READY;
     p->priority = priority;
-    p->prempt_count = 0;
+    p->preempt_count = 0;
     p->wake_up_time = 0;
 
     p->cpu_time = 0;
@@ -128,24 +123,6 @@ long create_process(void (*fn)(void*), void *arg, int priority, const char *name
     num_process++;
 
     return pid;
-}
-
-/**
- * @brief Crea un Hilo del Kernel (Kernel Thread)
- * @param fn Función a ejecutar
- * @param priority Prioridad inicial del proceso
- * @param name Nombre descriptivo del proceso
- * @return PID del proceso creado, -1 en caso de error
- * 
- * @details
- *   En BareMetalM4 (v0.6), como no hay separación de memoria virtual por proceso,
- *   todos los procesos son técnicamente hilos del kernel que comparten espacio de direcciones.
- *   
- *   Esta función es un wrapper sobre create_process() que pasa nullptr como argumento.
- */
-long create_thread(void (*fn)(void*), int priority, const char *name) {
-    /* Wrapper sobre create_process para cumplir con la semántica del Tema 2 */
-    return create_process(fn, nullptr, priority, name);
 }
 
 /**
@@ -173,7 +150,7 @@ void init_process_system() {
     kproc->state = PROCESS_RUNNING;
     kproc->priority = 0;
     kproc->stack_addr = 0;
-    kproc->prempt_count = 0;
+    kproc->preempt_count = 0;
 
     k_strncpy(kproc->name, "Kernel", 16);
 
@@ -181,7 +158,7 @@ void init_process_system() {
     current_process = kproc;
     num_process = 1;
 
-    kprintf("   [PROC v0.6] Subsistema de procesos iniciado (Round-Robin + Quantum). PID 0 activo.\n");
+    kprintf("   [PROC v0.6.1] Subsistema de procesos iniciado (Round-Robin + Quantum). PID 0 activo.\n");
 }
 
 
@@ -265,80 +242,4 @@ void free_zombie() {
             /* Nota: Si el proceso tuviera archivos abiertos, los cerraríamos aquí */
         }
     }
-}
-
-/* ========================================================================== */
-/* SOPORTE PARA MODO USUARIO (EL0)                                          */
-/* ========================================================================== */
-
-/**
- * @brief Estructura de contexto para transición a modo usuario
- * 
- * @details
- *   Almacena los registros necesarios para saltar de EL1 (Kernel) a EL0 (Usuario):
- *   - pc: Program Counter donde inicia el código de usuario
- *   - sp: Stack Pointer para el stack de usuario
- */
-struct user_context {
-    unsigned long pc;
-    unsigned long sp;
-};
-
-/**
- * @brief Función wrapper que realiza la transición a modo usuario
- * @param arg Puntero a user_context con pc y sp del usuario
- * 
- * @details
- *   Esta función se ejecuta en modo kernel (EL1) y es el punto de entrada
- *   para procesos que necesitan ejecutarse en modo usuario (EL0).
- *   
- *   Flujo:
- *   1. Recibe el contexto de usuario (pc y sp)
- *   2. Llama a move_to_user_mode() (ensamblador) que:
- *      - Configura SPSR_EL1 para retornar a EL0
- *      - Carga pc y sp en los registros correspondientes
- *      - Ejecuta ERET para saltar a modo usuario
- */
-void kernel_to_user_wrapper(void *arg) {
-    struct user_context *ctx = (struct user_context *)arg;
-
-    kprintf("[KERNEL] Saltando a Modo Usuario (EL0)...\n");
-    move_to_user_mode(ctx->pc, ctx->sp);
-}
-
-/**
- * @brief Crea un proceso de usuario (EL0)
- * @param user_fn Función que se ejecutará en modo usuario
- * @param name Nombre descriptivo del proceso
- * @return PID del proceso creado, -1 en caso de error
- * 
- * @details
- *   Crea un proceso que ejecutará código en modo usuario (EL0) en lugar
- *   del modo kernel (EL1). Esto permite:
- *   - Protección de memoria (el usuario no puede acceder a zonas del kernel)
- *   - Aislamiento de fallos (un crash de usuario no afecta al kernel)
- *   - Menor privilegio (el usuario no puede ejecutar instrucciones sensibles)
- *   
- *   Flujo de creación:
- *   1. Asigna un stack de 4KB para el usuario
- *   2. Crea una estructura user_context con pc y sp
- *   3. Crea un proceso kernel que ejecuta kernel_to_user_wrapper()
- *   4. El wrapper realizará la transición a EL0 mediante move_to_user_mode()
- *   
- *   INTEGRACION CON DEMAND PAGING:
- *   Los procesos de usuario son ideales para demostrar demand paging, ya que
- *   pueden acceder a direcciones virtuales que provocan Page Faults manejados
- *   por handle_fault() en sys.c.
- */
-long create_user_process(void (*user_fn)(void), const char *name) {
-    /* 1. Stack de Usuario */
-    void *user_stack = kmalloc(4096);
-
-    /* 2. Contexto de arranque */
-    struct user_context *ctx = (struct user_context *)kmalloc(sizeof(struct user_context));
-    ctx->pc = (unsigned long)user_fn;
-    ctx->sp = (unsigned long)user_stack + 4096;
-
-    /* 3. Crear proceso Kernel que saltara a User */
-    return create_process(kernel_to_user_wrapper, ctx, 10, name);
 }

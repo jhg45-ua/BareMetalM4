@@ -1,6 +1,7 @@
 /**
  * @file ramfs.c
  * @brief Implementación del Sistema de Ficheros en Memoria (RamFS)
+ * @version 0.6.1
  * @details
  * Gestiona un disco virtual en la memoria RAM:
  * - Superbloque global
@@ -9,6 +10,7 @@
  */
 
 #include "../../include/fs/vfs.h"
+#include "../../include/types.h"
 #include "../../include/utils/kutils.h"
 #include "../../include/drivers/io.h"
 
@@ -32,7 +34,7 @@ static file_t fd_table[MAX_FILES];
  * @param size Tamaño total en bytes
  */
 void ramfs_init(unsigned long start_addr, unsigned long size) {
-    kprintf("   [VFS v0.6] Formateando RamDisk en 0x%x (Tamaño: %d KB)...\n", start_addr, size / 1024);
+    kprintf("   [VFS v0.6.1] Formateando RamDisk en 0x%x (Tamaño: %d KB)...\n", start_addr, size / 1024);
 
     ram_disk.start_addr = start_addr;
     ram_disk.total_size = size;
@@ -49,7 +51,7 @@ void ramfs_init(unsigned long start_addr, unsigned long size) {
         /* Asignación de bloques estática: Cada archivo tiene 1 página (4KB) */
         ram_disk.inodes[i].data_ptr = start_addr + (i * MAX_FILE_SIZE);
     }
-    kprintf("   [VFS v0.6] RamDisk montado con éxito. iNodos libres: %d / %d\n", ram_disk.free_inodes, MAX_FILES);
+    kprintf("   [VFS v0.6.1] RamDisk montado con éxito. iNodos libres: %d / %d\n", ram_disk.free_inodes, MAX_FILES);
 }
 
 /**
@@ -122,7 +124,7 @@ void vfs_ls(void) {
  * @return FD (índice >= 0) o -1 si error
  */
 int vfs_open(const char *name) {
-    inode_t *target_inode = nullptr;
+    inode_t *target_inode = NULL;
 
     /* 1. Buscar el iNodo por nombre */
     for (int i = 0; i < MAX_FILES; i++) {
@@ -132,14 +134,14 @@ int vfs_open(const char *name) {
         }
     }
 
-    if (target_inode == nullptr) {
+    if (target_inode == NULL) {
         kprintf("[VFS] Error: Archivo '%s' no encontrado.\n", name);
         return -1;
     }
 
     /* 2. Buscar un slot libre en la tabla de File Descriptors */
     for (int i = 0; i < MAX_FILES; i++) {
-        if (fd_table[i].inode == nullptr) {
+        if (fd_table[i].inode == NULL) {
             fd_table[i].inode = target_inode;
             fd_table[i].position = 0; /* Empezamos a leer/escribir desde el principio */
             return i; /* Devolvemos el número de FD */
@@ -152,7 +154,7 @@ int vfs_open(const char *name) {
  * @brief Escribe datos en un archivo abierto
  */
 int vfs_write(const int fd, const char *buf, int count) {
-    if (fd < 0 || fd >= MAX_FILES || fd_table[fd].inode == nullptr) return -1;
+    if (fd < 0 || fd >= MAX_FILES || fd_table[fd].inode == NULL) return -1;
 
     file_t *file = &fd_table[fd];
     inode_t *inode = file->inode;
@@ -182,7 +184,7 @@ int vfs_write(const int fd, const char *buf, int count) {
  * @brief Lee datos de un archivo abierto
  */
 int vfs_read(const int fd, char *buf, int count) {
-    if (fd < 0 || fd >= MAX_FILES || fd_table[fd].inode == nullptr) return -1;
+    if (fd < 0 || fd >= MAX_FILES || fd_table[fd].inode == NULL) return -1;
 
     file_t *file = &fd_table[fd];
     inode_t *inode = file->inode;
@@ -207,10 +209,10 @@ int vfs_read(const int fd, char *buf, int count) {
  * @brief Cierra un archivo abierto (Libera el File Descriptor)
  */
 int vfs_close(int fd) {
-    if (fd < 0 || fd >= MAX_FILES || fd_table[fd].inode == nullptr) return -1;
+    if (fd < 0 || fd >= MAX_FILES || fd_table[fd].inode == NULL) return -1;
 
     /* Limpiar el slot para que pueda ser reutilizado */
-    fd_table[fd].inode = nullptr;
+    fd_table[fd].inode = NULL;
     fd_table[fd].position = 0;
     return 0;
 }

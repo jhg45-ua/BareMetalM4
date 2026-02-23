@@ -23,7 +23,7 @@
  *   - Configura permisos según nivel de privilegio (EL0/EL1)
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #include "../../include/mm/vmm.h"
@@ -128,5 +128,5 @@ unsigned long kernel_pgd[512] __attribute__((aligned(4096)));
  */
 void init_vmm(void) {
     memset(kernel_pgd, 0, sizeof(kernel_pgd));
-    kprintf("[VMM v0.6] Inicializando VMM... Tabla Maestra en 0x%x\n", (unsigned long)kernel_pgd);
+    kprintf("[VMM v0.6.1] Inicializando VMM... Tabla Maestra en 0x%x\n", (unsigned long)kernel_pgd);
 }

@@ -6,7 +6,7 @@
  *   Implementación de funciones de utilidad general del kernel
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #include "../../include/utils/kutils.h"
@@ -25,14 +25,6 @@ void panic(const char *msg) {
     kprintf(msg);
     kprintf("\nSistema detenido");
     while(1);
-}
-
-/**
- * @brief Retardo activo (busy-wait)
- * @param count Número de iteraciones
- */
-void delay(int count) {
-    for (volatile int i = 0; i < count; i++);
 }
 
 /**
@@ -89,20 +81,4 @@ void *memset(void *s, int c, unsigned long n) {
         *p++ = (unsigned char)c;
     }
     return s;
-}
-
-/**
- * @brief Copia un bloque de memoria de origen a destino
- * @param dest Puntero al destino
- * @param src Puntero al origen
- * @param n Número de bytes a copiar
- * @return Puntero al destino (dest)
- */
-void *memcpy(void *dest, const void *src, unsigned long n) {
-    char *d = (char *)dest;
-    const char *s = (const char *)src;
-    while (n--) {
-        *d++ = *s++;
-    }
-    return dest;
 }

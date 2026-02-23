@@ -23,12 +23,13 @@
  *   - timer_tick() despierta procesos cuando wake_up_time llega
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #include "../../include/sched.h"
 #include "../../include/kernel/process.h"
 #include "../../include/kernel/scheduler.h"
+#include "../../include/drivers/timer.h"
 
 /* ========================================================================== */
 /* FUNCIONES EXTERNAS (Ensamblador)                                         */
@@ -36,8 +37,6 @@
 
 /* Context switch entre dos procesos (src/entry.S) */
 extern void cpu_switch_to(struct pcb *prev, struct pcb *next);
-
-extern void enable_interrupts(void);
 
 /* Bandera global para indicar que se debe llamar a schedule()
    Marcada cuando un proceso agota su quantum o debe ceder la CPU */

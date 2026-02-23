@@ -5,7 +5,7 @@ LD = aarch64-elf-ld
 GCC_INC = $(shell $(CC) -print-file-name=include)
 
 # Flags de compilación
-CFLAGS = -Wall -O2 -ffreestanding -nostdinc -I$(GCC_INC) -nostdlib \
+CFLAGS = -Wall -Wextra -O2 -ffreestanding -nostdinc -I$(GCC_INC) -nostdlib \
          -mcpu=cortex-a72 -mgeneral-regs-only
 
 # Directorios

@@ -10,7 +10,7 @@
  *   - long: 64 bits (diferente a x86 donde es 32 bits)
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #ifndef TYPES_H
@@ -27,5 +27,10 @@ typedef unsigned int       uint32_t;
 
 /* Entero sin signo de 64 bits (0 a 18,446,744,073,709,551,615) */
 typedef unsigned long      uint64_t;
+
+/* Puntero nulo estándar para C */
+#ifndef NULL
+#define NULL ((void*)0)
+#endif
 
 #endif // TYPES_H

@@ -12,11 +12,13 @@
  *     * test_page_fault: Demand paging
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #include "../../include/sched.h"
+#include "../../include/types.h"
 #include "../../include/drivers/io.h"
+#include "../../include/drivers/timer.h"
 #include "../../include/kernel/process.h"
 #include "../../include/kernel/scheduler.h"
 #include "../../include/utils/kutils.h"
@@ -25,13 +27,10 @@
 #include "../../include/fs/vfs.h"
 
 /* ========================================================================== */
-/* FUNCIONES EXTERNAS                                                        */
+/* FUNCIONES EXTERNAS (Ensamblador)                                          */
 /* ========================================================================== */
 
-/* Habilita las interrupciones IRQ en el procesador */
-extern void enable_interrupts(void);
-
-/* Apaga el sistema */
+/* Apaga el sistema (src/utils.S) */
 extern void system_off(void);
 
 /* ========================================================================== */
@@ -61,7 +60,7 @@ void shell_task(void) {
     char command_buf[64];
     int idx = 0;
 
-    kprintf("\n[SHELL] Bienvenido a BareMetalM4 OS v0.6\n");
+    kprintf("\n[SHELL] Bienvenido a BareMetalM4 OS v0.6.1\n");
     kprintf("[SHELL] Escribe 'help' para ver comandos.\n");
     kprintf("> "); // Prompt
 
@@ -104,7 +103,7 @@ void shell_task(void) {
             arg[j] = '\0';
 
             /* --- EJECUCIÓN DE COMANDOS --- */
-            if (k_strcmp(command_buf, "help") == 0) {
+            if (k_strcmp(cmd, "help") == 0) {
                 kprintf("Comandos disponibles:\n");
                 kprintf("  help               - Muestra esta ayuda\n");
                 kprintf("  ps                 - Lista los procesos (simulado)\n");
@@ -118,7 +117,7 @@ void shell_task(void) {
                 kprintf("  panic              - Provoca un Kernel Panic\n");
                 kprintf("  poweroff           - Apaga el sistema\n");
             } 
-            else if (k_strcmp(command_buf, "ps") == 0) {
+            else if (k_strcmp(cmd, "ps") == 0) {
                 kprintf("\nPID   | Prio   |  State  |   Time   | Name\n");
                 kprintf("------|--------|---------|----------|------\n");
                 for(int i = 0; i < MAX_PROCESS; i++) {
@@ -198,9 +197,6 @@ void shell_task(void) {
                 if (arg[0] == '\0' || k_strcmp(arg, "all") == 0) {
                     kprintf("Iniciando batería de tests general...\n");
                     test_memory();
-
-                    // test_processes();
-
                     test_scheduler();
                 }
                 /* Test del Tema 2: Round-Robin y Quantum */
@@ -213,7 +209,10 @@ void shell_task(void) {
                 }
                 /* Test del Tema 4: Memoria Virtual y Page Faults */
                 else if (k_strcmp(arg, "pf") == 0) {
-                    create_process((void(*)(void*)) test_demand, nullptr, 0, "test_page_fault");
+                    create_process((void(*)(void*)) test_demand, NULL, 0, "test_page_fault");
+                }
+                else if (k_strcmp(arg, "demo") == 0) {
+                    ejecutar_gran_demo();
                 }
                 /* Argumento no reconocido */
                 else {
@@ -221,15 +220,15 @@ void shell_task(void) {
                     kprintf("Opciones válidas: all, rr, sem, pf\n");
                 }
             }
-            else if (k_strcmp(command_buf, "clear") == 0) {
+            else if (k_strcmp(cmd, "clear") == 0) {
                 /* Código ANSI para limpiar terminal */
                 kprintf("\033[2J\033[H");
                 kprintf("BareMetalM4 Shell\n");
             }
-            else if (k_strcmp(command_buf, "panic") == 0) {
+            else if (k_strcmp(cmd, "panic") == 0) {
                 panic("Usuario solicitó pánico");
             }
-            else if(k_strcmp(command_buf, "poweroff") == 0) {
+            else if(k_strcmp(cmd, "poweroff") == 0) {
                 kprintf("Apagando el sistema... Hasta luego!\n");
                 system_off();
             }

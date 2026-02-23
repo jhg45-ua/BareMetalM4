@@ -15,7 +15,7 @@
  *   - 0x40000000 - 0x47FFFFFF: RAM del kernel (128MB, Normal memory)
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #include "../../include/mm/mm.h"
@@ -68,6 +68,8 @@ extern char _end; /* Símbolo del linker donde termina el kernel */
  * 4. Activar MMU y caches
  */
 void mem_init(unsigned long heap_start, unsigned long heap_size) {
+    (void)heap_start;
+    (void)heap_size;
     kprintf("   [MMU] Mapeando Kernel y Perifericos con paginas de 4KB...\n");
 
     /* 1. Mapear Periféricos (UART y Controlador de Interrupciones) */

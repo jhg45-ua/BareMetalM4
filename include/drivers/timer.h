@@ -11,7 +11,7 @@
  *     periódicas que decrementan el quantum de los procesos
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #ifndef TIMER_H
@@ -64,9 +64,6 @@ extern void disable_interrupts(void);
 
 /* Tabla de vectores de excepciones (src/vectors.S) */
 extern void vectors(void);
-
-/* Planificador de procesos (src/kernel.c) */
-extern void schedule(void);
 
 /* ========================================================================== */
 /* CONSTANTES DE TIMING                                                      */

@@ -25,7 +25,7 @@
  *   - Manejo robusto de excepciones
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #ifndef TESTS_H
@@ -79,32 +79,6 @@ void test_processes(void);
  *   - Algoritmo de prioridades con aging para evitar starvation
  */
 void test_scheduler(void);
-
-/* ========================================================================== */
-/* PRUEBAS DE SYSCALLS Y SEGURIDAD                                           */
-/* ========================================================================== */
-
-/**
- * @brief Proceso de usuario en EL0 que ejecuta syscalls
- * 
- * @details
- *   Demuestra el uso de llamadas al sistema desde nivel de usuario:
- *   - SYS_WRITE (0): Imprime mensaje en consola
- *   - SYS_EXIT (1): Termina el proceso limpiamente
- *   
- *   Utiliza ensamblador inline para invocar syscalls via SVC.
- */
-void user_task(void);
-
-/**
- * @brief Proceso que intenta violar segmentación de memoria
- * 
- * @details
- *   Prueba de robustez del manejo de excepciones.
- *   Intenta escribir en dirección NULL (0x0) para generar un Data Abort.
- *   El sistema debe capturar la excepción y terminar el proceso sin colapsar.
- */
-void kamikaze_test(void);
 
 /* ========================================================================== */
 /* PRUEBAS DE ROUND-ROBIN CON QUANTUM                                       */

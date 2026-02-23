@@ -1,3 +1,8 @@
+/**
+ * @file vfs.h
+ * @brief Virtual File System - Sistema de Archivos en Memoria (RamFS)
+ * @version 0.6.1
+ */
 #ifndef VFS_H
 #define VFS_H
 

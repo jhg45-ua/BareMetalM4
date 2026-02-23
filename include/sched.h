@@ -20,7 +20,7 @@
  *   - Wait queues para sincronización eficiente
  * 
  * @author Sistema Operativo Educativo BareMetalM4
- * @version 0.6
+ * @version 0.6.1
  */
 
 #ifndef SCHED_H
@@ -71,7 +71,6 @@
  * @brief Constantes de configuración del sistema
  * 
  * MAX_PROCESS (64): Número máximo de procesos simultáneos
- * BUFFER_SIZE (4): Tamaño de buffers internos
  * DEFAULT_QUANTUM (5): Quantum de Round-Robin en ticks
  *   - Cada proceso recibe 5 ticks de CPU antes de ser expropiado
  *   - Se decrementa en timer_tick()
@@ -79,7 +78,6 @@
  *   - Balance entre responsividad y overhead de context switch
  */
 #define MAX_PROCESS 64
-#define BUFFER_SIZE 4
 #define DEFAULT_QUANTUM 5  /* Ticks de quantum para Round-Robin */
 
 /* ========================================================================== */
@@ -147,7 +145,7 @@ struct pcb {
     long state;                  /* Estado del proceso */
     long pid;                    /* Process ID */
     int priority;                /* Prioridad (menor = más urgente) */
-    long prempt_count;           /* Contador de preempciones */
+    long preempt_count;           /* Contador de preempciones */
     unsigned long wake_up_time;  /* Tick para despertar (si BLOCKED) */
     char name[16];               /* Nombre del proceso (debug) */
     unsigned long stack_addr;    /* Dirección base de la pila */
